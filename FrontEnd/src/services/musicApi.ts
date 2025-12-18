@@ -29,10 +29,15 @@ export async function uploadSong(
   coverFile: File
 ): Promise<Song> {
   try {
-    // Generate unique filenames
+    // Generate unique filenames and sanitize them
+    const sanitizeFilename = (name: string) => name.replace(/[^\x00-\x7F]/g, "").replace(/\s+/g, "_").replace(/[^a-zA-Z0-9._-]/g, "");
+
     const timestamp = Date.now();
-    const audioFileName = `audio/${timestamp}-${audioFile.name}`;
-    const coverFileName = `covers/${timestamp}-${coverFile.name}`;
+    const cleanAudioName = sanitizeFilename(audioFile.name);
+    const cleanCoverName = sanitizeFilename(coverFile.name);
+
+    const audioFileName = `audio/${timestamp}-${cleanAudioName}`;
+    const coverFileName = `covers/${timestamp}-${cleanCoverName}`;
 
     // Upload audio file
     const { error: audioError } = await supabase.storage
