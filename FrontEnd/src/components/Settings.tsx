@@ -1,4 +1,5 @@
 import { useSettings } from "../contexts/SettingsContext";
+import { useNavigate } from "react-router-dom";
 
 interface SettingsProps {
   isOpen: boolean;
@@ -8,6 +9,7 @@ interface SettingsProps {
 type Theme = "aqua" | "green" | "amber" | "pink" | "red";
 
 export function Settings({ isOpen, onClose }: SettingsProps) {
+  const navigate = useNavigate();
   const { 
     theme, setTheme, 
     language, setLanguage,
@@ -172,6 +174,16 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                   </div>
                 </div>
               </div>
+            </div>
+            {/* Admin Link */}
+            <div className="pt-2 border-t border-[var(--text-secondary)]/10">
+              <button 
+                onClick={() => { onClose(); navigate('/admin'); }}
+                className="w-full flex items-center justify-between group p-3 border border-[var(--text-secondary)]/10 hover:border-[var(--accent)]/50 hover:bg-[var(--accent)]/5 transition-all text-left"
+              >
+                <span className="text-[10px] text-[var(--accent)] font-black tracking-[0.3em] uppercase">Access Admin Portal</span>
+                <span className="text-[var(--text-secondary)] group-hover:text-[var(--accent)] transition-colors">→</span>
+              </button>
             </div>
 
             {/* Footer Apply Button (inside scroll for accessibility) */}
