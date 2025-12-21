@@ -7,7 +7,7 @@ import { useAuth } from "../contexts/AuthContext";
 
 export function Admin() {
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { logout, isAuthenticated } = useAuth();
   const [formData, setFormData] = useState({
     title: "",
     artist: "",
@@ -50,8 +50,8 @@ export function Admin() {
       const fileSizeMB = file.size / (1024 * 1024);
 
       if (type === "audio") {
-        if (fileSizeMB > 50) {
-          setStatus({ type: "error", message: `Audio file is too big! (${fileSizeMB.toFixed(2)} MB). Max limit is 50MB.` });
+        if (fileSizeMB > 5) {
+          setStatus({ type: "error", message: `Audio file is too big! (${fileSizeMB.toFixed(2)} MB). Max limit is 5MB for public upload.` });
           return;
         }
         setAudioFile(file);
@@ -61,8 +61,8 @@ export function Admin() {
           setFormData(prev => ({ ...prev, duration: audio.duration }));
         };
       } else {
-        if (fileSizeMB > 5) {
-          setStatus({ type: "error", message: `Cover image is too big! (${fileSizeMB.toFixed(2)} MB). Max limit is 5MB.` });
+        if (fileSizeMB > 2) {
+          setStatus({ type: "error", message: `Cover image is too big! (${fileSizeMB.toFixed(2)} MB). Max limit is 2MB.` });
           return;
         }
         setCoverFile(file);
@@ -116,47 +116,50 @@ export function Admin() {
             <div className="w-1 h-12 bg-[var(--accent)] shadow-[0_0_10px_var(--accent)]"></div>
             <div>
               <h1 className="text-2xl md:text-3xl font-bold tracking-wider uppercase">
-                Admin Panel
+                Upload Zone
               </h1>
               <p className="text-xs text-[var(--text-secondary)] tracking-widest mt-1">
-                UPLOAD MANAGEMENT SYSTEM
+                COMMUNITY UPLOAD SYSTEM
               </p>
             </div>
           </div>
 
           {/* Action Buttons */}
           <div className="flex flex-wrap items-center gap-3">
-            {/* Manage Database Button */}
-            <Link 
-              to="/editor" 
-              className="group relative flex items-center gap-2 px-4 py-2 text-xs uppercase tracking-wider font-bold
-                       border border-[var(--accent)] text-[var(--accent)]
-                       hover:bg-[var(--accent)] hover:text-black
-                       transition-all duration-300
-                       shadow-[0_0_10px_rgba(0,255,255,0.2)] hover:shadow-[0_0_20px_rgba(0,255,255,0.6)]
-                       overflow-hidden"
-            >
-              <span className="relative z-10">Manage Database</span>
-              <div className="absolute inset-0 bg-[var(--accent)] transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-300"></div>
-            </Link>
+            {/* Manage Database Button - Admin Only */}
+            {isAuthenticated && (
+              <>
+                <Link 
+                  to="/editor" 
+                  className="group relative flex items-center gap-2 px-4 py-2 text-xs uppercase tracking-wider font-bold
+                           border border-[var(--accent)] text-[var(--accent)]
+                           hover:bg-[var(--accent)] hover:text-black
+                           transition-all duration-300
+                           shadow-[0_0_10px_rgba(0,255,255,0.2)] hover:shadow-[0_0_20px_rgba(0,255,255,0.6)]
+                           overflow-hidden"
+                >
+                  <span className="relative z-10">Manage DB</span>
+                  <div className="absolute inset-0 bg-[var(--accent)] transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-300"></div>
+                </Link>
 
-            {/* Logout Button */}
-            <button
-              onClick={() => {
-                logout();
-                navigate('/admin/login');
-              }}
-              className="group relative flex items-center gap-2 px-4 py-2 text-xs uppercase tracking-wider font-bold
-                       border border-red-500 text-red-500
-                       hover:bg-red-500 hover:text-white
-                       transition-all duration-300
-                       shadow-[0_0_10px_rgba(239,68,68,0.2)] hover:shadow-[0_0_20px_rgba(239,68,68,0.6)]
-                       overflow-hidden"
-            >
-              <LogOut size={14} className="relative z-10" />
-              <span className="relative z-10">Logout</span>
-              <div className="absolute inset-0 bg-red-500 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-300"></div>
-            </button>
+                <button
+                  onClick={() => {
+                    logout();
+                    navigate('/');
+                  }}
+                  className="group relative flex items-center gap-2 px-4 py-2 text-xs uppercase tracking-wider font-bold
+                           border border-red-500 text-red-500
+                           hover:bg-red-500 hover:text-white
+                           transition-all duration-300
+                           shadow-[0_0_10px_rgba(239,68,68,0.2)] hover:shadow-[0_0_20px_rgba(239,68,68,0.6)]
+                           overflow-hidden"
+                >
+                  <LogOut size={14} className="relative z-10" />
+                  <span className="relative z-10">Exit</span>
+                  <div className="absolute inset-0 bg-red-500 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-300"></div>
+                </button>
+              </>
+            )}
 
             {/* Back to Player Button */}
             <Link 

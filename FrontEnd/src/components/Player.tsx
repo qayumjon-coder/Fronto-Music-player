@@ -1,7 +1,8 @@
 import type { Song } from "../types/Song";
 
 import { useSettings } from "../contexts/SettingsContext";
-import { Heart, Mic2, X, Mail, Send } from "lucide-react";
+import { Heart, Mic2, X, Mail, Send, Upload } from "lucide-react";
+import { Link } from "react-router-dom";
 import { updateSong } from "../services/musicApi";
 
 import { useAudioPlayer } from "../hooks/useAudioPlayer";
@@ -322,31 +323,27 @@ export function Player({ songs, loading, player, onOpenSettings }: PlayerProps) 
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--accent)] opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[var(--accent)] shadow-[0_0_8px_var(--accent)]"></span>
                   </span>
-                  <span className="font-bold">Collaboration Open</span>
+                  <span className="font-bold">Uploads Open</span>
                 </div>
 
                 <h2 className="text-3xl md:text-5xl font-bold tracking-tighter mb-6 text-white uppercase leading-tight">
-                  Want to feature <span className="text-[var(--accent)]">your music</span> <br className="hidden md:block" /> in our mainframe?
+                  Upload <span className="text-[var(--accent)]">your music</span> <br className="hidden md:block" /> directly to the mainframe
                 </h2>
 
                 <p className="text-[var(--text-secondary)] font-mono text-xs md:text-sm leading-relaxed uppercase tracking-[0.2em] max-w-2xl mx-auto lg:mx-0">
-                  We are constantly expanding our neural database. If you produce high-quality tracks and want to reach our synchronization frequency, connect with our network.
+                  Join our neural network. Share your frequency with the world. Uploads are now open to all units (Max 5MB).
                 </p>
               </div>
               
               <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto shrink-0">
-                <a 
-                  href="mailto:contact@musicplayer.com"
-                  className="group/btn relative px-10 py-5 bg-black/40 border-2 border-[var(--accent)] text-[var(--accent)] font-black tracking-[0.2em] uppercase text-xs overflow-hidden transition-all duration-500 hover:shadow-[0_0_50px_var(--accent)] text-center min-w-[220px] backdrop-blur-sm"
+                <Link 
+                  to="/admin"
+                  className="group/btn relative px-10 py-5 bg-black/40 border-2 border-[var(--accent)] text-[var(--accent)] font-black tracking-[0.2em] uppercase text-xs overflow-hidden transition-all duration-500 hover:shadow-[0_0_50px_var(--accent)] text-center min-w-[220px] backdrop-blur-sm flex items-center justify-center"
                 >
-                  {/* Corner Accents */}
-                  {/* <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-[var(--accent)] opacity-50 group-hover/btn:opacity-100 transition-opacity"></div>
-                  <div className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2 border-[var(--accent)] opacity-50 group-hover/btn:opacity-100 transition-opacity"></div> */}
-                  
                   {/* Content */}
                   <div className="relative z-10 flex items-center justify-center gap-3 group-hover/btn:scale-105 transition-transform duration-300">
-                    <Mail size={18} strokeWidth={2.5} className="group-hover/btn:rotate-12 group-hover/btn:text-black transition-transform duration-300" />
-                    <span className="font-black group-hover/btn:text-black">Send Demo</span>
+                    <Upload size={18} strokeWidth={2.5} className="group-hover/btn:-translate-y-1 transition-transform duration-300" />
+                    <span className="font-black group-hover/btn:text-black">Upload Track</span>
                   </div>
                   
                   {/* Animated Background */}
@@ -356,7 +353,7 @@ export function Player({ songs, loading, player, onOpenSettings }: PlayerProps) 
                   <div className="absolute inset-0 opacity-0 group-hover/btn:opacity-20 bg-[var(--accent)] blur-xl transition-opacity duration-500"></div>
                   
                   <style dangerouslySetInnerHTML={{ __html: `.group/btn:hover span { color: black !important; } .group/btn:hover svg { stroke: black !important; }` }} />
-                </a>
+                </Link>
 
                 <a 
                   href="https://t.me/yourusername"

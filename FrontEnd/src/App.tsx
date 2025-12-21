@@ -25,7 +25,7 @@ function MusicApp() {
           <Routes>
             <Route path="/" element={<Player songs={songs} loading={loading} player={player} onOpenSettings={() => setIsSettingsOpen(true)} />} />
             <Route path="/admin/login" element={<AdminLogin />} />
-            <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
+            <Route path="/admin" element={<Admin />} />
             <Route path="/editor" element={<ProtectedRoute><MusicEditor /></ProtectedRoute>} />
           </Routes>
         </div>
