@@ -43,6 +43,14 @@ export function Admin() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  
+  const MAX_UPLOADS = 7;
+  const [uploadCount, setUploadCount] = useState(0);
+
+  useEffect(() => {
+    const count = parseInt(localStorage.getItem('user_upload_count') || '0');
+    setUploadCount(count);
+  }, []);
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>, type: "audio" | "cover") => {
     if (e.target.files && e.target.files[0]) {
@@ -80,6 +88,12 @@ export function Admin() {
       return;
     }
 
+    // Check limit
+    if (!isAuthenticated && uploadCount >= MAX_UPLOADS) {
+      setStatus({ type: "error", message: `Daily upload limit reached! (${MAX_UPLOADS}/${MAX_UPLOADS})` });
+      return;
+    }
+
     setLoading(true);
     setStatus(null);
 
@@ -94,6 +108,14 @@ export function Admin() {
       );
 
       setStatus({ type: "success", message: "Song uploaded successfully!" });
+      
+      // Increment local count if not admin
+      if (!isAuthenticated) {
+        const newCount = uploadCount + 1;
+        setUploadCount(newCount);
+        localStorage.setItem('user_upload_count', newCount.toString());
+      }
+
       setTimeout(() => navigate("/"), 2000);
     } catch (err) {
       console.error('Upload error:', err);
@@ -120,6 +142,11 @@ export function Admin() {
               </h1>
               <p className="text-xs text-[var(--text-secondary)] tracking-widest mt-1">
                 COMMUNITY UPLOAD SYSTEM
+                {!isAuthenticated && (
+                  <span className={`ml-3 px-2 py-0.5 border ${uploadCount >= MAX_UPLOADS ? 'border-red-500 text-red-500' : 'border-[var(--accent)] text-[var(--accent)]'}`}>
+                    LIMIT: {uploadCount}/{MAX_UPLOADS}
+                  </span>
+                )}
               </p>
             </div>
           </div>
