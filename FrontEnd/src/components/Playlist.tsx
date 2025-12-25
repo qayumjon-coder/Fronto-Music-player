@@ -46,58 +46,80 @@ export function Playlist({ songs, currentSong, onSelectSong, onRemove, onBulkRem
     }
   };
 
+  const selectAll = () => {
+    if (selectedIds.size === songs.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(songs.map(s => s.id)));
+    }
+  };
+
   const isSelectionMode = selectedIds.size > 0;
 
   return (
-    <div className="flex flex-col h-full bg-black/20">
+    <div className="flex flex-col h-full bg-black/20 font-mono">
       {/* Playlist Header/Actions */}
-      <div className="flex items-center justify-between p-2 border-b border-[var(--text-secondary)]/10 bg-black/10">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between p-3 border-b border-[var(--text-secondary)]/10 bg-black/30 backdrop-blur-md sticky top-0 z-30">
+        <div className="flex items-center gap-3">
             {isSelectionMode ? (
                 <>
                   <button 
-                    onClick={() => { playClick(); setSelectedIds(new Set()); }}
-                    className="p-1 text-[var(--danger)] hover:bg-[var(--danger)]/10 transition-colors"
+                    onClick={() => { playClick(); selectAll(); }}
+                    className="flex items-center gap-2 p-1 text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors border border-[var(--accent)]/30 px-2"
                   >
-                    <X size={16} />
+                    <CheckCircle2 size={14} />
+                    <span className="text-[9px] font-bold uppercase tracking-widest whitespace-nowrap">
+                        {selectedIds.size === songs.length ? 'DESELECT ALL' : 'SELECT ALL'}
+                    </span>
                   </button>
-                  <span className="text-[10px] font-mono text-[var(--accent)] tracking-widest uppercase">
-                    {selectedIds.size} SELECTED
-                  </span>
                 </>
             ) : (
-                <span className="text-[10px] font-mono text-[var(--text-secondary)]/60 tracking-widest uppercase pl-2">
-                    {songs.length} TRACKS_TOTAL
-                </span>
+                <div className="flex items-center gap-2 pl-1">
+                    <div className="w-1.5 h-1.5 bg-[var(--accent)] animate-pulse"></div>
+                    <span className="text-[10px] text-[var(--accent)]/60 tracking-[0.3em] uppercase">
+                        {songs.length} TRACKS_READY
+                    </span>
+                </div>
             )}
         </div>
 
-        {isSelectionMode && onBulkRemove && (
-            <button
-              onClick={() => { playClick(); handleBulkDelete(); }}
-              className="flex items-center gap-2 px-3 py-1 bg-[var(--danger)]/20 border border-[var(--danger)]/50 text-[var(--danger)] text-[9px] font-mono font-bold hover:bg-[var(--danger)] hover:text-white transition-all uppercase tracking-tighter"
-            >
-              <Trash2 size={12} />
-              <span>Delete Selected</span>
-            </button>
-        )}
+        <div className="flex items-center gap-2">
+            {isSelectionMode && onBulkRemove && (
+                <button
+                  onClick={() => { playClick(); handleBulkDelete(); }}
+                  className="flex items-center gap-2 px-4 py-1.5 bg-[var(--danger)] text-black text-[10px] font-black hover:bg-white transition-all uppercase tracking-tighter shadow-[0_0_15px_rgba(255,0,85,0.3)] hover:shadow-[0_0_20px_white]"
+                >
+                  <Trash2 size={14} />
+                  <span>Purge Selection</span>
+                </button>
+            )}
+            {isSelectionMode && (
+                 <button 
+                    onClick={() => { playClick(); setSelectedIds(new Set()); }}
+                    className="p-1.5 text-[var(--text-secondary)] hover:text-white transition-colors"
+                    title="Exit Selection Mode"
+                  >
+                    <X size={18} />
+                  </button>
+            )}
+        </div>
       </div>
 
-      <div className="flex flex-col gap-0.5 overflow-y-auto custom-scrollbar flex-1">
+      <div className="flex flex-col gap-0.5 overflow-y-auto custom-scrollbar flex-1 p-1">
         {songs.map((song, index) => {
           const isActive = song.id === currentSong?.id;
           const isSelected = selectedIds.has(song.id);
           const isMenuOpen = activeMenuId === song.id;
 
           return (
-            <div key={song.id} className="relative group/item flex items-center border-b border-[var(--text-secondary)]/5 last:border-0">
-              {/* Selection Checkbox (Only visible in selection mode or hover if you want, but user said 'select bosilganda ... ro'yxatdagi barcha element tanlanadigan bo'lsin') */}
-              {isSelectionMode && (
+            <div key={song.id} className={`relative group/item flex items-center transition-all duration-300 ${isActive ? 'playlist-active-bg' : ''} ${isSelected ? 'bg-[var(--accent)]/10' : ''}`}>
+              {/* Selection Checkbox */}
+              {(isSelectionMode || isSelected) && (
                 <button
                   onClick={() => { playClick(); toggleSelect(song.id); }}
-                  className={`pl-3 pr-1 py-3 transition-colors ${isSelected ? 'text-[var(--accent)]' : 'text-[var(--text-secondary)]/30 hover:text-[var(--accent)]/60'}`}
+                  className={`pl-4 pr-1 py-3 transition-colors ${isSelected ? 'text-[var(--accent)]' : 'text-[var(--text-secondary)]/30 hover:text-[var(--accent)]'}`}
                 >
-                  {isSelected ? <CheckCircle2 size={16} /> : <Circle size={16} />}
+                  {isSelected ? <CheckCircle2 size={18} /> : <Circle size={18} />}
                 </button>
               )}
 
@@ -110,11 +132,11 @@ export function Playlist({ songs, currentSong, onSelectSong, onRemove, onBulkRem
                   }
                 }}
                 onMouseEnter={playHover}
-                className={`flex-1 flex items-center justify-between gap-4 py-3 px-4 transition-all duration-300 relative border-l-2 ${
+                className={`flex-1 flex items-center justify-between gap-4 py-4 px-4 transition-all duration-500 relative border-l-2 ${
                   isActive 
-                    ? 'bg-[var(--accent)]/10 border-[var(--accent)]' 
-                    : 'hover:bg-[var(--text-secondary)]/5 border-transparent hover:border-[var(--text-secondary)]/30'
-                } ${isSelected ? 'bg-[var(--accent)]/5' : ''}`}
+                    ? 'border-[var(--accent)]' 
+                    : 'hover:bg-white/5 border-transparent hover:border-white/20'
+                }`}
                 style={{ 
                   animation: 'fadeIn 0.5s ease-out forwards', 
                   animationDelay: `${index * 0.05}s`, 
@@ -128,13 +150,18 @@ export function Playlist({ songs, currentSong, onSelectSong, onRemove, onBulkRem
 
                 <div className="flex items-center gap-4 flex-1 text-left overflow-hidden min-w-0">
                   {/* Track Info */}
-                  <div className="flex-1 min-w-0 hover-marquee">
+                  <div className={`flex-1 min-w-0 ${song.title.length > 25 ? 'hover-marquee' : ''}`}>
                     <div className="overflow-hidden whitespace-nowrap">
-                      <div className={`marquee-inner text-xs font-bold font-mono tracking-tight uppercase inline-block ${isActive ? 'text-[var(--accent)] text-glow' : 'text-[var(--text-secondary)] group-hover/item:text-[var(--text-primary)]'}`}>
-                        {song.title} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; {song.title} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                      <div className={`marquee-inner text-xs font-bold font-mono tracking-tight uppercase inline-block transition-colors duration-300 ${isActive ? 'text-[var(--accent)] text-glow' : 'text-[var(--text-secondary)] group-hover/item:text-[var(--text-primary)]'}`}>
+                        {song.title}
+                        {song.title.length > 25 && (
+                          <span className="opacity-0 group-hover/item:opacity-100 transition-opacity">
+                             &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; {song.title} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                          </span>
+                        )}
                       </div>
                     </div>
-                    <div className="text-[9px] truncate font-mono uppercase tracking-[0.2em] opacity-40 mt-0.5">
+                    <div className={`text-[9px] truncate font-mono uppercase tracking-[0.2em] mt-0.5 transition-opacity duration-300 ${isActive ? 'opacity-80' : 'opacity-30 group-hover/item:opacity-60'}`}>
                       {song.artist}
                     </div>
                   </div>

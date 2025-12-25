@@ -124,8 +124,28 @@ html { font-size: 16px; }
     100% { transform: translateX(-50%); }
 }
 
+.hover-marquee {
+    mask-image: linear-gradient(to right, black 80%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, black 80%, transparent 100%);
+}
+
 .hover-marquee:hover .marquee-inner {
-    animation: marquee-playlist 8s linear infinite;
+    animation: marquee-playlist 12s linear infinite;
+}
+
+.marquee-inner {
+    will-change: transform;
+}
+
+/* Active track pulse */
+@keyframes active-pulse {
+    0% { background-color: rgba(0, 255, 255, 0.05); }
+    50% { background-color: rgba(0, 255, 255, 0.12); }
+    100% { background-color: rgba(0, 255, 255, 0.05); }
+}
+
+.playlist-active-bg {
+    animation: active-pulse 3s infinite ease-in-out;
 }
 
 /* Retro Grid Background */
