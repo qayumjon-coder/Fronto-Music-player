@@ -1,11 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-
 import { useSettings } from "../contexts/SettingsContext";
 
 export type RepeatMode = "off" | "one" | "all";
 
 export function useAudioPlayer(songs: { url: string }[]) {
-  // 1. State Hooks
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -16,24 +14,20 @@ export function useAudioPlayer(songs: { url: string }[]) {
   const [shuffle, setShuffle] = useState(false);
   const [repeat, setRepeat] = useState<RepeatMode>("off");
 
-  // Settings
   const { autoplay } = useSettings();
 
-  // 2. Ref Hooks
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const previousVolumeRef = useRef(70);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
 
-  // Initialize Audio Logic & Context
+  // 1. Initialize Audio Element and Context
   useEffect(() => {
-    // Create fresh audio instance to avoid "MediaElementSource already connected" error in StrictMode
     const audio = new Audio();
     audio.crossOrigin = "anonymous";
     audioRef.current = audio;
 
-    // Web Audio API Setup
-    const initAudioContext = () => {
+    const setupContext = () => {
       try {
         const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
         const ctx = new AudioContextClass();
@@ -47,89 +41,75 @@ export function useAudioPlayer(songs: { url: string }[]) {
         audioContextRef.current = ctx;
         analyserRef.current = analyser;
       } catch (e) {
-        console.error("Audio Context Setup Error:", e);
+        console.error("Audio Context Error:", e);
       }
     };
-    initAudioContext();
 
-    // Event Handlers
+    setupContext();
+
     const handlePlay = () => setPlaying(true);
     const handlePause = () => setPlaying(false);
-
     const handleTimeUpdate = () => {
       setCurrentTime(audio.currentTime);
-      const progressVal = (audio.currentTime / audio.duration) * 100;
-      setProgress(Number.isNaN(progressVal) ? 0 : progressVal);
+      const val = (audio.currentTime / audio.duration) * 100;
+      setProgress(isNaN(val) ? 0 : val);
     };
-
     const handleLoadedMetadata = () => {
       setDuration(audio.duration);
     };
 
-    // Attach listeners
     audio.addEventListener('play', handlePlay);
     audio.addEventListener('pause', handlePause);
     audio.addEventListener('timeupdate', handleTimeUpdate);
     audio.addEventListener('loadedmetadata', handleLoadedMetadata);
 
     return () => {
-      // Cleanup
       audio.removeEventListener('play', handlePlay);
       audio.removeEventListener('pause', handlePause);
       audio.removeEventListener('timeupdate', handleTimeUpdate);
       audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
-
       audio.pause();
       audio.src = "";
-      audioRef.current = null;
-
       if (audioContextRef.current?.state !== 'closed') {
         audioContextRef.current?.close();
       }
-      audioContextRef.current = null;
-      analyserRef.current = null;
     };
-  }, []); // Run once on mount
+  }, []);
 
-  // Sync Volume
+  // 2. Safety: Keep index in bounds
   useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.volume = volume / 100;
+    if (songs.length > 0 && index >= songs.length) {
+      setIndex(songs.length - 1);
     }
-  }, [volume]);
+  }, [songs.length, index]);
 
-  // Handle Song Source Changes
+  // 3. Handle Source / Playback state
   useEffect(() => {
-    if (!songs.length || !audioRef.current) return;
     const audio = audioRef.current;
+    if (!audio || !songs.length || !songs[index]) return;
 
-    const currentSongUrl = songs[index].url;
+    const targetUrl = songs[index].url;
 
-    // If src changed
-    if (audio.src !== currentSongUrl) {
-      audio.src = currentSongUrl;
+    // Check if we need to change source
+    if (audio.src !== targetUrl) {
+      audio.src = targetUrl;
       audio.load();
+    }
 
-      // Only attempt to play if we are currently in a 'playing' state
-      if (playing) {
-        const attemptPlay = async () => {
-          // Resume context if needed
-          if (audioContextRef.current?.state === 'suspended') {
-            await audioContextRef.current.resume();
-          }
-          try {
-            await audio.play();
-          } catch (e) {
-            console.log("Autoplay prevented or failed", e);
-            setPlaying(false);
-          }
-        };
-        attemptPlay();
+    if (playing) {
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(error => {
+          console.warn("Playback prevented:", error);
+          setPlaying(false);
+        });
       }
+    } else {
+      audio.pause();
     }
   }, [index, songs, playing]);
 
-  // Handle Repeats / Song End logic
+  // 4. Handle End of Track
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -139,8 +119,6 @@ export function useAudioPlayer(songs: { url: string }[]) {
         audio.currentTime = 0;
         audio.play();
       } else if (autoplay || repeat === 'all') {
-        // If autoplay enabled OR repeat all enabled, we move next
-        // (Repeat All implicitly implies continuous play)
         if (songs.length > 1 || repeat === 'all') {
           setIndex(prev => (prev + 1) % songs.length);
           setPlaying(true);
@@ -156,105 +134,64 @@ export function useAudioPlayer(songs: { url: string }[]) {
     return () => audio.removeEventListener('ended', onEnded);
   }, [repeat, songs.length, autoplay]);
 
-
-  // Controls
-  const play = async () => {
-    if (!audioRef.current) return;
-    const audio = audioRef.current;
-
-    if (audioContextRef.current?.state === 'suspended') {
-      try {
-        await audioContextRef.current.resume();
-      } catch (e) {
-        console.warn("Audio Context resume failed", e);
-      }
+  // 5. Volume Sync
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = volume / 100;
     }
-    audio.play().catch(e => {
-      console.error("Play failed", e);
-      setPlaying(false);
-    });
+  }, [volume]);
+
+  // Public Methods
+  const play = async () => {
+    if (audioContextRef.current?.state === 'suspended') {
+      await audioContextRef.current.resume();
+    }
     setPlaying(true);
   };
 
-  const pause = () => {
-    if (!audioRef.current) return;
-    audioRef.current.pause();
-    setPlaying(false);
-  };
+  const pause = () => setPlaying(false);
 
   const toggleMute = () => {
-    if (!audioRef.current) return;
-    const audio = audioRef.current;
     if (isMuted) {
-      audio.volume = previousVolumeRef.current / 100;
-      setVolumeState(previousVolumeRef.current);
+      setVolume(previousVolumeRef.current);
       setIsMuted(false);
     } else {
       previousVolumeRef.current = volume;
-      audio.volume = 0;
-      setVolumeState(0);
+      setVolume(0);
       setIsMuted(true);
     }
   };
 
   const setVolume = (val: number) => {
-    if (!audioRef.current) return;
-    // Update state first
     const v = Math.max(0, Math.min(100, val));
     setVolumeState(v);
-
-    // Update audio
-    audioRef.current.volume = v / 100;
-    if (v > 0 && isMuted) setIsMuted(false);
+    if (v > 0) setIsMuted(false);
   };
 
   const seek = (val: number) => {
-    if (!audioRef.current) return;
-    const audio = audioRef.current;
-    if (Number.isFinite(audio.duration)) {
-      audio.currentTime = (val / 100) * audio.duration;
-      setProgress(val);
+    if (audioRef.current && isFinite(audioRef.current.duration)) {
+      audioRef.current.currentTime = (val / 100) * audioRef.current.duration;
     }
   };
 
   const next = () => {
+    if (songs.length === 0) return;
     setIndex(prev => (prev + 1) % songs.length);
     setPlaying(true);
   };
 
   const prev = () => {
+    if (songs.length === 0) return;
     setIndex(prev => (prev - 1 + songs.length) % songs.length);
     setPlaying(true);
   };
 
-  const toggleShuffle = () => setShuffle(s => !s);
-  const toggleRepeat = () => setRepeat(r => r === "off" ? "all" : r === "all" ? "one" : "off");
-
-  const selectSong = (i: number) => {
-    setIndex(i);
-    setPlaying(true);
-  };
-
   return {
-    index,
-    playing,
-    progress,
-    volume,
-    isMuted,
-    currentTime,
-    duration,
-    shuffle,
-    repeat,
-    play,
-    pause,
-    next,
-    prev,
-    setVolume,
-    toggleMute,
-    seek,
-    toggleShuffle,
-    toggleRepeat,
-    selectSong,
+    index, playing, progress, volume, isMuted, currentTime, duration,
+    shuffle, repeat, play, pause, next, prev, setVolume, toggleMute,
+    seek, toggleShuffle: () => setShuffle(!shuffle),
+    toggleRepeat: () => setRepeat(r => r === "off" ? "all" : r === "all" ? "one" : "off"),
+    selectSong: (i: number) => { setIndex(i); setPlaying(true); },
     analyser: analyserRef.current
   };
 }
