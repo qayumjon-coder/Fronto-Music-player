@@ -107,26 +107,104 @@ export function Player({ songs, loading, player, onOpenSettings, onAddToPlaylist
   
   if (!songs.length) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] w-full max-w-lg mx-auto p-8 border border-[var(--text-secondary)]/30 bg-[var(--bg-main)]/50 backdrop-blur-xl relative group">
-        <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-[var(--accent)]"></div>
-        <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-[var(--accent)]"></div>
-        
-        <div className="w-16 h-16 mb-6 border border-[var(--accent)] flex items-center justify-center animate-pulse">
-            <Search className="text-[var(--accent)]" size={32} />
+      <>
+        <AmbientBackground playing={player.playing} analyser={player.analyser} />
+        <div className="w-full min-h-screen flex items-center justify-center p-4">
+          <div className="flex flex-col items-center justify-center w-full max-w-lg p-8 border border-[var(--text-secondary)]/30 bg-[var(--bg-main)]/50 backdrop-blur-xl relative group">
+            <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-[var(--accent)]"></div>
+            <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-[var(--accent)]"></div>
+            
+            <div className="w-16 h-16 mb-6 border border-[var(--accent)] flex items-center justify-center animate-pulse">
+                <Search className="text-[var(--accent)]" size={32} />
+            </div>
+            
+            <h2 className="text-xl font-bold text-[var(--accent)] mb-4 tracking-widest font-mono uppercase text-glow">Playlist Empty</h2>
+            <p className="text-[var(--text-secondary)] text-center text-xs font-mono mb-8 uppercase tracking-[0.2em] leading-relaxed">
+                Your personal frequency stack is currently offline. <br/> Access the database to synchronize local tracks.
+            </p>
+            
+            <button 
+                onClick={() => { playClick(); setIsSearchOpen(true); }}
+                className="px-8 py-3 border border-[var(--accent)] text-[var(--accent)] font-bold font-mono text-xs uppercase tracking-[0.3em] hover:bg-[var(--accent)] hover:text-black transition-all duration-300 shadow-[0_0_20px_rgba(0,255,255,0.1)] hover:shadow-[0_0_30px_rgba(0,255,255,0.3)]"
+            >
+                Access Database
+            </button>
+          </div>
         </div>
-        
-        <h2 className="text-xl font-bold text-[var(--accent)] mb-4 tracking-widest font-mono uppercase text-glow">Playlist Empty</h2>
-        <p className="text-[var(--text-secondary)] text-center text-xs font-mono mb-8 uppercase tracking-[0.2em] leading-relaxed">
-            Your personal frequency stack is currently offline. <br/> Access the database to synchronize local tracks.
-        </p>
-        
-        <button 
-            onClick={() => { playClick(); setIsSearchOpen(true); }}
-            className="px-8 py-3 border border-[var(--accent)] text-[var(--accent)] font-bold font-mono text-xs uppercase tracking-[0.3em] hover:bg-[var(--accent)] hover:text-black transition-all duration-300 shadow-[0_0_20px_rgba(0,255,255,0.1)] hover:shadow-[0_0_30px_rgba(0,255,255,0.3)]"
-        >
-            Access Database
-        </button>
-      </div>
+
+        {/* Search Modal - DUPLICATED OR RENDERED HERE FOR EMPTY STATE */}
+        {isSearchOpen && (
+          <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-4 animate-in fade-in duration-300">
+            <div className="w-full max-w-lg bg-[var(--bg-main)] border border-[var(--text-secondary)] p-6 relative max-h-[80vh] flex flex-col">
+              <button 
+                onClick={() => setIsSearchOpen(false)}
+                className="absolute top-4 right-4 text-[var(--text-secondary)] hover:text-[var(--accent)]"
+              >
+                <X size={20} />
+              </button>
+              
+              <h2 className="text-xl font-bold font-mono tracking-widest text-[var(--accent)] mb-6 uppercase">
+                Search Database
+              </h2>
+
+              <form onSubmit={handleSearch} className="flex gap-2 mb-6">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="SEARCH ARTIST OR TITLE..."
+                  className="flex-1 bg-black/50 border border-[var(--text-secondary)] p-3 text-sm font-mono focus:outline-none focus:border-[var(--accent)] text-[var(--text-primary)]"
+                  autoFocus
+                />
+                <button 
+                  type="submit" 
+                  disabled={isSearching}
+                  className="px-4 bg-[var(--accent)] text-black font-bold uppercase tracking-wider hover:opacity-90 disabled:opacity-50"
+                >
+                  {isSearching ? <Loader2 className="animate-spin" size={20} /> : <Search size={20} />}
+                </button>
+              </form>
+
+              {searchMsg && (
+                <div className={`mb-4 p-2 text-center text-xs font-mono border ${searchMsg.type === 'success' ? 'border-green-500 text-green-400' : 'border-red-500 text-red-400'}`}>
+                  {searchMsg.text}
+                </div>
+              )}
+
+              <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 min-h-[300px]">
+                 {searchResults.length === 0 && !isSearching && searchQuery && (
+                   <div className="text-center text-[var(--text-secondary)] text-xs font-mono mt-10">
+                     NO DATA FOUND IN SECTOR
+                   </div>
+                 )}
+                 
+                 {searchResults.map((song) => {
+                   const inPlaylist = songs.some(s => s.id === song.id);
+                   return (
+                     <div key={song.id} className="flex items-center justify-between p-3 border border-[var(--text-secondary)]/20 hover:border-[var(--text-secondary)]/50 bg-black/30 group transition-all">
+                        <div className="flex items-center gap-3 overflow-hidden">
+                           <img src={song.coverUrl} className="w-10 h-10 object-cover border border-[var(--text-secondary)]/30" />
+                           <div className="min-w-0">
+                             <div className="text-xs font-bold text-[var(--text-primary)] truncate font-mono">{song.title}</div>
+                             <div className="text-[9px] text-[var(--text-secondary)] truncate font-mono uppercase tracking-wider">{song.artist}</div>
+                           </div>
+                        </div>
+                        
+                        <button
+                          onClick={() => handleAddSong(song)}
+                          disabled={inPlaylist}
+                          className={`p-2 transition-all ${inPlaylist ? 'text-green-500 cursor-default' : 'text-[var(--text-secondary)] hover:text-[var(--accent)] border border-transparent hover:border-[var(--accent)]'}`}
+                        >
+                          {inPlaylist ? <Check size={18} /> : <Plus size={18} />}
+                        </button>
+                     </div>
+                   );
+                 })}
+              </div>
+            </div>
+          </div>
+        )}
+      </>
     );
   }
 
