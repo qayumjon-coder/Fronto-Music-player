@@ -124,7 +124,7 @@ export function Playlist({ songs, currentSong, onSelectSong, onRemove, onBulkRem
         ref={scrollContainerRef}
         className="flex flex-col gap-0.5 overflow-y-auto custom-scrollbar flex-1 p-1 w-full"
       >
-        {songs.map((song, index) => {
+        {songs.map((song) => {
           const isActive = song.id === currentSong?.id;
           const isSelected = selectedIds.has(song.id);
           const isMenuOpen = activeMenuId === song.id;
