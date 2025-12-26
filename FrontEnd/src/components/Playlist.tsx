@@ -192,22 +192,26 @@ export function Playlist({ songs, currentSong, onSelectSong, onRemove, onBulkRem
                 </div>
               </button>
               
-              {/* More Actions Toggle */}
-              <div className="relative shrink-0" ref={isMenuOpen ? menuRef : null}>
+              {/* More Actions Toggle - Absolute positioned to stay visible */}
+              <div className="absolute right-1 top-1/2 -translate-y-1/2 z-20" ref={isMenuOpen ? menuRef : null}>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     playClick();
                     setActiveMenuId(isMenuOpen ? null : song.id);
                   }}
-                  className={`p-1.5 text-[var(--text-secondary)]/40 hover:text-[var(--accent)] transition-colors ${isMenuOpen ? 'text-[var(--accent)]' : ''}`}
+                  className={`p-1.5 transition-colors ${
+                    isMenuOpen 
+                      ? 'text-[var(--accent)] bg-[var(--accent)]/10' 
+                      : 'text-[var(--text-secondary)]/30 hover:text-[var(--accent)] group-hover/item:text-[var(--text-secondary)]/60'
+                  }`}
                 >
                   <MoreVertical size={14} />
                 </button>
 
                 {/* Dropdown Menu */}
                 {isMenuOpen && (
-                  <div className="absolute right-0 top-full mt-1 w-32 bg-[var(--bg-main)] border border-[var(--text-secondary)]/30 z-50 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+                  <div className="absolute right-0 top-full mt-1 w-32 bg-[var(--bg-main)] border border-[var(--text-secondary)]/30 z-50 shadow-2xl animate-in fade-in zoom-in-95 duration-200 backdrop-blur-xl">
                     <button
                       onClick={(e) => { e.stopPropagation(); toggleSelect(song.id); }}
                       className="w-full flex items-center gap-3 px-3 py-2 text-[10px] font-mono uppercase tracking-wider text-[var(--text-secondary)] hover:text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors border-b border-[var(--text-secondary)]/10"
