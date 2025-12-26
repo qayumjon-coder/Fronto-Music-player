@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import type { Song } from "../types/Song";
 import { useSoundEffects } from "../hooks/useSoundEffects";
-import { Trash2, MoreVertical, Check, Circle, CheckCircle2, X } from "lucide-react";
+import { Trash2, MoreVertical, Check, Square, CheckSquare2, X } from "lucide-react";
 
 interface PlaylistProps {
   songs: Song[];
@@ -67,7 +67,7 @@ export function Playlist({ songs, currentSong, onSelectSong, onRemove, onBulkRem
                     onClick={() => { playClick(); selectAll(); }}
                     className="flex items-center gap-2 p-1 text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors border border-[var(--accent)]/30 px-2"
                   >
-                    <CheckCircle2 size={14} />
+                    <CheckSquare2 size={14} />
                     <span className="text-[9px] font-bold uppercase tracking-widest whitespace-nowrap">
                         {selectedIds.size === songs.length ? 'DESELECT ALL' : 'SELECT ALL'}
                     </span>
@@ -119,7 +119,7 @@ export function Playlist({ songs, currentSong, onSelectSong, onRemove, onBulkRem
                   onClick={() => { playClick(); toggleSelect(song.id); }}
                   className={`pl-4 pr-1 py-3 transition-colors ${isSelected ? 'text-[var(--accent)]' : 'text-[var(--text-secondary)]/30 hover:text-[var(--accent)]'}`}
                 >
-                  {isSelected ? <CheckCircle2 size={18} /> : <Circle size={18} />}
+                  {isSelected ? <CheckSquare2 size={18} /> : <Square size={18} />}
                 </button>
               )}
 
