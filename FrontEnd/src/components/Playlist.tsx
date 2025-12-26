@@ -67,50 +67,54 @@ export function Playlist({ songs, currentSong, onSelectSong, onRemove, onBulkRem
 
   const isSelectionMode = selectedIds.size > 0;
 
+  function formatDuration(d?: number) {
+    if (!d) return '--:--';
+    const mins = Math.floor(d / 60);
+    const secs = Math.floor(d % 60).toString().padStart(2, '0');
+    return `${mins}:${secs}`;
+  }
+
   return (
-    <div className="flex flex-col h-full bg-black/20 font-mono">
+    <div className="flex flex-col h-full bg-black/20 font-mono w-full overflow-hidden">
       {/* Playlist Header/Actions */}
-      <div className="flex items-center justify-between p-3 border-b border-[var(--text-secondary)]/10 bg-black/30 backdrop-blur-md sticky top-0 z-30">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between p-3 border-b border-[var(--text-secondary)]/10 bg-black/30 backdrop-blur-md sticky top-0 z-30 w-full">
+        <div className="flex items-center gap-2 overflow-hidden">
             {isSelectionMode ? (
-                <>
-                  <button 
-                    onClick={() => { playClick(); selectAll(); }}
-                    className="flex items-center gap-2 p-1 text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors border border-[var(--accent)]/30 px-2"
-                  >
-                    <CheckSquare2 size={14} />
-                    <span className="text-[9px] font-bold uppercase tracking-widest whitespace-nowrap">
-                        {selectedIds.size === songs.length ? 'DESELECT ALL' : 'SELECT ALL'}
-                    </span>
-                  </button>
-                </>
+                <button 
+                  onClick={() => { playClick(); selectAll(); }}
+                  className="flex items-center gap-2 p-1 text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors border border-[var(--accent)]/30 px-2 shrink-0"
+                >
+                  <CheckSquare2 size={12} />
+                  <span className="text-[8px] font-bold uppercase tracking-widest whitespace-nowrap">
+                      {selectedIds.size === songs.length ? 'NONE' : 'ALL'}
+                  </span>
+                </button>
             ) : (
-                <div className="flex items-center gap-2 pl-1">
-                    <div className="w-1.5 h-1.5 bg-[var(--accent)] animate-pulse"></div>
-                    <span className="text-[10px] text-[var(--accent)]/60 tracking-[0.3em] uppercase">
-                        {songs.length} TRACKS_READY
+                <div className="flex items-center gap-2 pl-1 truncate">
+                    <div className="w-1 h-1 bg-[var(--accent)] animate-pulse shrink-0"></div>
+                    <span className="text-[9px] text-[var(--accent)]/60 tracking-widest uppercase truncate">
+                        {songs.length} TRACKS
                     </span>
                 </div>
             )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 shrink-0">
             {isSelectionMode && onBulkRemove && (
                 <button
                   onClick={() => { playClick(); handleBulkDelete(); }}
-                  className="flex items-center gap-2 px-4 py-1.5 bg-[var(--danger)] text-black text-[10px] font-black hover:bg-white transition-all uppercase tracking-tighter shadow-[0_0_15px_rgba(255,0,85,0.3)] hover:shadow-[0_0_20px_white]"
+                  className="p-1.5 bg-[var(--danger)] text-black hover:bg-white transition-all shadow-[0_0_10px_rgba(255,0,85,0.3)] shrink-0"
+                  title="Purge Selected"
                 >
-                  <Trash2 size={14} />
-                  <span>Purge Selection</span>
+                  <Trash2 size={12} />
                 </button>
             )}
             {isSelectionMode && (
                  <button 
                     onClick={() => { playClick(); setSelectedIds(new Set()); }}
-                    className="p-1.5 text-[var(--text-secondary)] hover:text-white transition-colors"
-                    title="Exit Selection Mode"
+                    className="p-1.5 text-[var(--text-secondary)] hover:text-white transition-colors shrink-0"
                   >
-                    <X size={18} />
+                    <X size={14} />
                   </button>
             )}
         </div>
@@ -118,7 +122,7 @@ export function Playlist({ songs, currentSong, onSelectSong, onRemove, onBulkRem
 
       <div 
         ref={scrollContainerRef}
-        className="flex flex-col gap-0.5 overflow-y-auto custom-scrollbar flex-1 p-1"
+        className="flex flex-col gap-0.5 overflow-y-auto custom-scrollbar flex-1 p-1 w-full"
       >
         {songs.map((song, index) => {
           const isActive = song.id === currentSong?.id;
@@ -129,15 +133,20 @@ export function Playlist({ songs, currentSong, onSelectSong, onRemove, onBulkRem
             <div 
                 key={song.id} 
                 data-active={isActive}
-                className={`relative group/item flex items-center transition-all duration-300 ${isActive ? 'playlist-active-bg' : ''} ${isSelected ? 'bg-[var(--accent)]/10' : ''}`}
+                className={`relative group/item flex items-center w-full transition-all duration-300 ${isActive ? 'playlist-active-bg' : 'hover:bg-white/5'} ${isSelected ? 'bg-[var(--accent)]/10' : ''}`}
             >
+              {/* Active Indicator Bar */}
+              {isActive && (
+                <div className="absolute top-0 bottom-0 left-0 w-1 bg-[var(--accent)] shadow-[0_0_10px_var(--accent)] z-10"></div>
+              )}
+
               {/* Selection Checkbox */}
               {(isSelectionMode || isSelected) && (
                 <button
                   onClick={() => { playClick(); toggleSelect(song.id); }}
-                  className={`pl-2 pr-1 py-3 transition-colors ${isSelected ? 'text-[var(--accent)]' : 'text-[var(--text-secondary)]/30 hover:text-[var(--accent)]'}`}
+                  className={`pl-2 pr-1 py-4 transition-colors shrink-0 ${isSelected ? 'text-[var(--accent)]' : 'text-[var(--text-secondary)]/30 hover:text-[var(--accent)]'}`}
                 >
-                  {isSelected ? <CheckSquare2 size={18} /> : <Square size={18} />}
+                  {isSelected ? <CheckSquare2 size={16} /> : <Square size={16} />}
                 </button>
               )}
 
@@ -150,50 +159,29 @@ export function Playlist({ songs, currentSong, onSelectSong, onRemove, onBulkRem
                   }
                 }}
                 onMouseEnter={playHover}
-                className={`flex-1 flex items-center justify-between gap-2 py-3 px-3 transition-all duration-500 relative border-l-2 ${
-                  isActive 
-                    ? 'border-[var(--accent)]' 
-                    : 'hover:bg-white/5 border-transparent hover:border-white/20'
-                }`}
-                style={{ 
-                  animation: 'fadeIn 0.5s ease-out forwards', 
-                  animationDelay: `${index * 0.05}s`, 
-                  opacity: 0 
-                }}
+                className={`flex-1 flex flex-col items-start gap-0.5 py-3 pr-8 pl-3 transition-all duration-300 overflow-hidden text-left ${isActive ? 'pl-4' : ''}`}
               >
-                {/* Active Indicator Bar */}
-                {isActive && (
-                  <div className="absolute top-0 bottom-0 left-0 w-0.5 bg-[var(--accent)] shadow-[0_0_10px_var(--accent)]"></div>
-                )}
-
-                <div className="flex flex-col flex-1 text-left overflow-hidden min-w-0 py-0.5">
-                  {/* Track Info */}
-                  <div className={`w-full min-w-0 ${song.title.length > 18 ? 'hover-marquee' : ''}`}>
-                    <div className="overflow-hidden whitespace-nowrap">
-                      <div className={`marquee-inner text-[10px] md:text-[11px] font-bold font-mono tracking-tight uppercase inline-block transition-colors duration-300 ${isActive ? 'text-[var(--accent)] text-glow' : 'text-[var(--text-secondary)] group-hover/item:text-[var(--text-primary)]'}`}>
-                        {song.title}
-                        {song.title.length > 18 && (
-                          <span className="opacity-0 group-hover/item:opacity-100 transition-opacity">
-                             &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; {song.title} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                          </span>
-                        )}
-                      </div>
-                    </div>
+                {/* Title Row */}
+                <div className={`w-full truncate text-[10px] font-bold font-mono tracking-tight uppercase ${isActive ? 'text-[var(--accent)] text-glow' : 'text-[var(--text-secondary)] group-hover/item:text-[var(--text-primary)]'}`}>
+                  {song.title}
+                </div>
+                
+                {/* Artist & Info Row */}
+                <div className="flex items-center justify-between w-full gap-2">
+                  <div className={`text-[8px] truncate font-mono uppercase tracking-wider flex-1 ${isActive ? 'opacity-80' : 'opacity-30 group-hover/item:opacity-60'}`}>
+                    {song.artist}
                   </div>
-                  
-                  <div className="flex items-baseline justify-between gap-2 mt-0.5">
-                    <div className={`text-[8px] truncate font-mono uppercase tracking-[0.1em] transition-opacity duration-300 flex-1 ${isActive ? 'opacity-80' : 'opacity-30 group-hover/item:opacity-60'}`}>
-                      {song.artist}
-                    </div>
-                    <div className={`text-[8px] font-mono shrink-0 opacity-40 group-hover/item:opacity-80 transition-opacity ${isActive ? 'text-[var(--accent)] opacity-80' : ''}`}>
-                       {formatDuration(song.duration)}
-                    </div>
+                  <div className={`text-[8px] font-mono shrink-0 opacity-40 ${isActive ? 'text-[var(--accent)] opacity-80' : ''}`}>
+                    {formatDuration(song.duration)}
                   </div>
                 </div>
               </button>
               
-              {/* More Actions Toggle - Absolute positioned to stay visible */}
-              <div className="absolute right-1 top-1/2 -translate-y-1/2 z-20" ref={isMenuOpen ? menuRef : null}>
+              {/* More Actions Toggle */}
+              <div 
+                className="absolute right-1 top-1/2 -translate-y-1/2 z-20" 
+                ref={isMenuOpen ? menuRef : null}
+              >
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -202,8 +190,8 @@ export function Playlist({ songs, currentSong, onSelectSong, onRemove, onBulkRem
                   }}
                   className={`p-1.5 transition-colors ${
                     isMenuOpen 
-                      ? 'text-[var(--accent)] bg-[var(--accent)]/10' 
-                      : 'text-[var(--text-secondary)]/30 hover:text-[var(--accent)] group-hover/item:text-[var(--text-secondary)]/60'
+                      ? 'text-[var(--accent)]' 
+                      : 'text-[var(--text-secondary)]/20 hover:text-[var(--accent)]'
                   }`}
                 >
                   <MoreVertical size={14} />
@@ -240,11 +228,4 @@ export function Playlist({ songs, currentSong, onSelectSong, onRemove, onBulkRem
       </div>
     </div>
   );
-}
-
-function formatDuration(d?: number) {
-  if (!d) return '--:--';
-  const mins = Math.floor(d / 60);
-  const secs = Math.floor(d % 60).toString().padStart(2, '0');
-  return `${mins}:${secs}`;
 }
