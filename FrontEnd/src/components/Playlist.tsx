@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import type { Song } from "../types/Song";
 import { useSoundEffects } from "../hooks/useSoundEffects";
 import { Trash2, MoreVertical, Check, Square, CheckSquare2, X } from "lucide-react";
+import { ConfirmDeleteModal } from "./ConfirmDeleteModal";
 
 interface PlaylistProps {
   songs: Song[];
@@ -17,6 +18,8 @@ export function Playlist({ songs, currentSong, onSelectSong, onRemove, onBulkRem
   const [activeMenuId, setActiveMenuId] = useState<number | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ type: 'single' | 'bulk', id?: number, title?: string } | null>(null);
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -52,9 +55,28 @@ export function Playlist({ songs, currentSong, onSelectSong, onRemove, onBulkRem
 
   const handleBulkDelete = () => {
     if (onBulkRemove && selectedIds.size > 0) {
+      setDeleteTarget({ type: 'bulk' });
+      setDeleteModalOpen(true);
+    }
+  };
+
+  const handleSingleDelete = (id: number, title: string) => {
+    setDeleteTarget({ type: 'single', id, title });
+    setDeleteModalOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (!deleteTarget) return;
+    
+    if (deleteTarget.type === 'bulk' && onBulkRemove) {
       onBulkRemove(Array.from(selectedIds));
       setSelectedIds(new Set());
+    } else if (deleteTarget.type === 'single' && deleteTarget.id && onRemove) {
+      onRemove(deleteTarget.id);
     }
+    
+    setDeleteTarget(null);
+    setActiveMenuId(null);
   };
 
   const selectAll = () => {
@@ -211,8 +233,7 @@ export function Playlist({ songs, currentSong, onSelectSong, onRemove, onBulkRem
                       onClick={(e) => {
                         e.stopPropagation();
                         playClick();
-                        if (onRemove) onRemove(song.id);
-                        setActiveMenuId(null);
+                        handleSingleDelete(song.id, song.title);
                       }}
                       className="w-full flex items-center gap-3 px-3 py-2 text-[10px] font-mono uppercase tracking-wider text-[var(--danger)] hover:bg-[var(--danger)]/10 transition-colors"
                     >
@@ -226,6 +247,15 @@ export function Playlist({ songs, currentSong, onSelectSong, onRemove, onBulkRem
           );
         })}
       </div>
+
+      {/* Confirm Delete Modal */}
+      <ConfirmDeleteModal
+        isOpen={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        onConfirm={confirmDelete}
+        songTitle={deleteTarget?.title}
+        count={deleteTarget?.type === 'bulk' ? selectedIds.size : undefined}
+      />
     </div>
   );
 }

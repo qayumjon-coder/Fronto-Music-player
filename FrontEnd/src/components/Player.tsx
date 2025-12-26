@@ -78,12 +78,28 @@ export function Player({ songs, loading, player, onOpenSettings, onAddToPlaylist
     }
   };
 
-  // Search Logic
+  // Search Logic with History
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Song[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [searchMsg, setSearchMsg] = useState<{type: 'success'|'error', text: string} | null>(null);
+  const [lastSearchQuery, setLastSearchQuery] = useState<string>("");
+
+  // Load last search from localStorage on mount
+  useEffect(() => {
+    const savedSearch = localStorage.getItem('lastSearchQuery');
+    if (savedSearch) {
+      setLastSearchQuery(savedSearch);
+    }
+  }, []);
+
+  const clearSearchHistory = () => {
+    localStorage.removeItem('lastSearchQuery');
+    setLastSearchQuery("");
+    setSearchQuery("");
+    setSearchResults([]);
+  };
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,6 +109,9 @@ export function Player({ songs, loading, player, onOpenSettings, onAddToPlaylist
     try {
         const results = await searchSongs(searchQuery);
         setSearchResults(results);
+        // Save to history
+        localStorage.setItem('lastSearchQuery', searchQuery);
+        setLastSearchQuery(searchQuery);
     } catch(err) {
         console.error(err);
     } finally {
@@ -220,6 +239,22 @@ export function Player({ songs, loading, player, onOpenSettings, onAddToPlaylist
               <h2 className="text-xl font-bold font-mono tracking-widest text-[var(--accent)] mb-6 uppercase">
                 Search Database
               </h2>
+
+              {lastSearchQuery && (
+                <div className="mb-4 flex items-center justify-between p-2 bg-black/30 border border-[var(--text-secondary)]/20">
+                  <div className="flex items-center gap-2 flex-1 overflow-hidden">
+                    <span className="text-[9px] text-[var(--text-secondary)]/60 uppercase tracking-wider shrink-0">Last:</span>
+                    <span className="text-[10px] text-[var(--accent)]/80 font-mono truncate">{lastSearchQuery}</span>
+                  </div>
+                  <button
+                    onClick={clearSearchHistory}
+                    className="p-1 text-[var(--text-secondary)]/40 hover:text-[var(--danger)] transition-colors shrink-0"
+                    title="Clear History"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              )}
 
               <form onSubmit={handleSearch} className="flex gap-2 mb-6">
                 <input
