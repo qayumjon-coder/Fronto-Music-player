@@ -119,6 +119,25 @@ export function Player({ songs, loading, player, onOpenSettings, onAddToPlaylist
     }
   };
 
+  // Populate search results with current songs or fetch suggestions on open/clear
+  useEffect(() => {
+    if (isSearchOpen && !searchQuery.trim()) {
+      if (songs.length > 0) {
+        setSearchResults(songs);
+      } else {
+        // If playlist is empty, fetch some suggestions from DB
+        setIsSearching(true);
+        searchSongs('').then(results => {
+          setSearchResults(results);
+        }).catch(err => {
+            console.error("Failed to load suggestions", err);
+        }).finally(() => {
+            setIsSearching(false);
+        });
+      }
+    }
+  }, [isSearchOpen, searchQuery, songs]);
+
   // Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
