@@ -4,7 +4,7 @@ import { Player } from "./components/Player";
 import { Settings } from "./components/Settings";
 import { Upload } from "./pages/Upload";
 import { AdminLogin } from "./pages/AdminLogin";
-import MusicEditor from "./pages/MusicEditor";
+import Admin from "./pages/Admin";
 import { usePlaylist } from "./hooks/usePlaylist";
 import { useAudioPlayer } from "./hooks/useAudioPlayer";
 import { SettingsProvider } from "./contexts/SettingsContext";
@@ -49,7 +49,7 @@ function MusicApp() {
             } />
             <Route path="/admin/login" element={<AdminLogin />} />
             <Route path="/upload" element={<Upload />} />
-            <Route path="/editor" element={<ProtectedRoute><MusicEditor /></ProtectedRoute>} />
+            <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
           </Routes>
         </div>
       </Router>

@@ -16,7 +16,7 @@ interface Music {
   lyrics?: string;
 }
 
-export default function MusicEditor() {
+export default function Admin() {
   const [list, setList] = useState<Music[]>([]);
   const [filtered, setFiltered] = useState<Music[]>([]);
   const [query, setQuery] = useState("");
@@ -198,7 +198,7 @@ export default function MusicEditor() {
         </div>
         <div className="flex items-center gap-4">
            <Link 
-            to="/admin" 
+            to="/upload" 
             className="flex items-center gap-2 px-4 py-2 bg-[var(--text-secondary)]/10 border border-[var(--text-secondary)] hover:bg-[var(--text-secondary)]/20 transition-all text-sm uppercase tracking-wider"
           >
             <Upload size={16} />

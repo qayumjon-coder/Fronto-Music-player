@@ -646,7 +646,7 @@ export function Player({ songs, loading, player, onOpenSettings, onAddToPlaylist
                 </Link>
 
                 <a 
-                  href="https://t.me/yourusername"
+                  href="https://t.me/NomsizMe"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="px-10 py-5 bg-[var(--accent)] border border-[var(--accent)] text-black font-bold tracking-[0.3em] uppercase text-xs hover:bg-transparent hover:text-[var(--accent)] transition-all duration-500 hover:shadow-[0_0_30px_var(--accent)] flex items-center justify-center gap-3 min-w-[200px]"

@@ -170,7 +170,7 @@ export function Upload() {
             {isAuthenticated && (
               <>
                 <Link 
-                  to="/editor" 
+                  to="/admin" 
                   className="group relative flex items-center gap-2 px-4 py-2 text-xs uppercase tracking-wider font-bold
                            border border-[var(--accent)] text-[var(--accent)]
                            hover:bg-[var(--accent)] hover:text-black
