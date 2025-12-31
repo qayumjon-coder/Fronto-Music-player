@@ -5,7 +5,7 @@ import { ArrowLeft, Music, Image as ImageIcon, CheckCircle, AlertCircle, LogOut 
 import { uploadSong } from "../services/musicApi";
 import { useAuth } from "../contexts/AuthContext";
 
-export function Admin() {
+export function Upload() {
   const navigate = useNavigate();
   const { logout, isAuthenticated } = useAuth();
   const [formData, setFormData] = useState({

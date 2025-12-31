@@ -2,7 +2,7 @@ import { useState } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { Player } from "./components/Player";
 import { Settings } from "./components/Settings";
-import { Admin } from "./pages/Admin";
+import { Upload } from "./pages/Upload";
 import { AdminLogin } from "./pages/AdminLogin";
 import MusicEditor from "./pages/MusicEditor";
 import { usePlaylist } from "./hooks/usePlaylist";
@@ -48,7 +48,7 @@ function MusicApp() {
               />
             } />
             <Route path="/admin/login" element={<AdminLogin />} />
-            <Route path="/admin" element={<Admin />} />
+            <Route path="/upload" element={<Upload />} />
             <Route path="/editor" element={<ProtectedRoute><MusicEditor /></ProtectedRoute>} />
           </Routes>
         </div>
