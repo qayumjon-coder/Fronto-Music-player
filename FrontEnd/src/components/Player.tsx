@@ -627,7 +627,7 @@ export function Player({ songs, loading, player, onOpenSettings, onAddToPlaylist
               
               <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto shrink-0">
                 <Link 
-                  to="/admin"
+                  to="/upload"
                   className="group/btn relative px-10 py-5 bg-black/40 border-2 border-[var(--accent)] text-[var(--accent)] font-black tracking-[0.2em] uppercase text-xs overflow-hidden transition-all duration-500 hover:shadow-[0_0_50px_var(--accent)] text-center min-w-[220px] backdrop-blur-sm flex items-center justify-center"
                 >
                   {/* Content */}
