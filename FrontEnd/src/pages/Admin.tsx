@@ -1,7 +1,7 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { getMusicList, updateSong, deleteSong } from "../services/musicApi";
-import { ArrowLeft, Search, Save, X, Edit2, Play, Pause, Music as MusicIcon, Upload, Image as ImageIcon, Trash2, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Search, Save, X, Edit2, Play, Pause, Music as MusicIcon, Upload, Image as ImageIcon, Trash2, AlertTriangle, BarChart2, Maximize2, Minimize2 } from "lucide-react";
 
 interface Music {
   id: number;
@@ -37,6 +37,26 @@ export default function Admin() {
   const [lyricsModalOpen, setLyricsModalOpen] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Stats Calculations
+  const stats = useMemo(() => {
+    if (!list.length) return null;
+    
+    // Duration
+    const withDuration = list.filter(m => m.duration);
+    const shortest = withDuration.length ? withDuration.reduce((prev, curr) => (prev.duration! < curr.duration!) ? prev : curr) : null;
+    const longest = withDuration.length ? withDuration.reduce((prev, curr) => (prev.duration! > curr.duration!) ? prev : curr) : null;
+    
+    // Categories
+    const cats: Record<string, number> = {};
+    list.forEach(m => {
+        const c = m.category || "General";
+        cats[c] = (cats[c] || 0) + 1;
+    });
+    const topCat = Object.entries(cats).sort((a,b) => b[1] - a[1])[0];
+
+    return { shortest, longest, topCat };
+  }, [list]);
 
   // Cleanup audio on unmount
   useEffect(() => {
@@ -215,13 +235,10 @@ export default function Admin() {
       </div>
 
       {/* Stats & Search */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-black/40 border border-[var(--text-secondary)] p-4 backdrop-blur-sm flex flex-col justify-center">
-          <div className="text-[var(--text-secondary)] text-xs uppercase tracking-widest mb-1">Total Tracks</div>
-          <div className="text-2xl font-bold">{list.length}</div>
-        </div>
+      <div className="space-y-6 mb-8">
         
-        <div className="md:col-span-2 relative group">
+        {/* Search Bar */}
+        <div className="relative group">
           <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
             <Search className="w-5 h-5 text-[var(--text-secondary)] group-focus-within:text-[var(--accent)] transition-colors" />
           </div>
@@ -229,8 +246,56 @@ export default function Admin() {
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder="SEARCH DATABASE..."
-            className="w-full h-full bg-black/40 border border-[var(--text-secondary)] pl-12 pr-4 py-4 focus:outline-none focus:border-[var(--accent)] focus:shadow-[0_0_15px_rgba(0,255,255,0.1)] transition-all placeholder-[var(--text-secondary)]/50 text-base"
+            className="w-full bg-black/40 border border-[var(--text-secondary)] pl-12 pr-4 py-4 focus:outline-none focus:border-[var(--accent)] focus:shadow-[0_0_15px_rgba(0,255,255,0.1)] transition-all placeholder-[var(--text-secondary)]/50 text-base"
           />
+        </div>
+
+        {/* Stats Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {/* Total */}
+            <div className="bg-black/40 border border-[var(--text-secondary)] p-4 backdrop-blur-sm group hover:border-[var(--accent)] transition-colors">
+              <div className="flex items-center gap-2 text-[var(--text-secondary)] text-[10px] uppercase tracking-widest mb-2">
+                 <MusicIcon size={12} /> Total Tracks
+              </div>
+              <div className="text-2xl font-bold group-hover:text-[var(--accent)] transition-colors">{list.length}</div>
+            </div>
+
+            {/* Top Cat */}
+            <div className="bg-black/40 border border-[var(--text-secondary)] p-4 backdrop-blur-sm group hover:border-[var(--accent)] transition-colors">
+              <div className="flex items-center gap-2 text-[var(--text-secondary)] text-[10px] uppercase tracking-widest mb-2">
+                 <BarChart2 size={12} /> Top Genre
+              </div>
+              <div className="text-lg font-bold truncate group-hover:text-[var(--accent)] transition-colors" title={stats?.topCat?.[0] || 'N/A'}>
+                {stats?.topCat ? stats.topCat[0] : 'N/A'} 
+                <span className="text-xs text-[var(--text-secondary)] ml-2">({stats?.topCat?.[1] || 0})</span>
+              </div>
+            </div>
+
+            {/* Longest */}
+            <div className="bg-black/40 border border-[var(--text-secondary)] p-4 backdrop-blur-sm group hover:border-[var(--accent)] transition-colors">
+              <div className="flex items-center gap-2 text-[var(--text-secondary)] text-[10px] uppercase tracking-widest mb-2">
+                 <Maximize2 size={12} /> Longest
+              </div>
+              <div className="text-sm font-bold truncate group-hover:text-[var(--accent)] transition-colors">
+                 {stats?.longest?.title || 'N/A'}
+              </div>
+              <div className="text-[10px] text-[var(--text-secondary)] mt-1 font-mono">
+                 {formatDuration(stats?.longest?.duration)}
+              </div>
+            </div>
+
+            {/* Shortest */}
+            <div className="bg-black/40 border border-[var(--text-secondary)] p-4 backdrop-blur-sm group hover:border-[var(--accent)] transition-colors">
+              <div className="flex items-center gap-2 text-[var(--text-secondary)] text-[10px] uppercase tracking-widest mb-2">
+                 <Minimize2 size={12} /> Shortest
+              </div>
+               <div className="text-sm font-bold truncate group-hover:text-[var(--accent)] transition-colors">
+                 {stats?.shortest?.title || 'N/A'}
+              </div>
+              <div className="text-[10px] text-[var(--text-secondary)] mt-1 font-mono">
+                 {formatDuration(stats?.shortest?.duration)}
+              </div>
+            </div>
         </div>
       </div>
 
