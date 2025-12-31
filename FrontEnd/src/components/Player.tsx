@@ -377,6 +377,7 @@ export function Player({ songs, loading, player, onOpenSettings, onAddToPlaylist
               <span className="text-[9px] font-mono text-[var(--accent)] tracking-[0.2em] font-bold uppercase">SYS.LINK_ACTIVE</span>
               <div className="hidden sm:block h-3 w-px bg-[var(--text-secondary)]/20 mx-1"></div>
               <span className="hidden sm:inline text-[9px] font-mono text-[var(--text-secondary)]/50 tracking-widest uppercase">STP_FLTR: ON</span>
+              <span className="hidden sm:inline text-[10px] font-mono text-[var(--accent)] tracking-widest">Personal Tracklist</span>
             </div>
             
             {/* Tech Labels */}
@@ -546,7 +547,7 @@ export function Player({ songs, loading, player, onOpenSettings, onAddToPlaylist
               {/* Playlist Header */}
               <div className="p-3 md:p-4 border-b border-[var(--text-secondary)]/30 bg-[var(--text-secondary)]/5 flex justify-between items-center">
                 <div>
-                    <h3 className="text-sm font-bold text-[var(--text-primary)] tracking-widest font-mono uppercase">Playlist</h3>
+                    <h3 className="text-sm font-bold text-[var(--text-primary)] tracking-widest font-mono uppercase">Tracklist</h3>
                     <p className="text-[10px] text-[var(--text-secondary)] mt-0.5 font-mono">{filteredSongs.length} SONGS_LOADED</p>
                 </div>
                 
