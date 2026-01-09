@@ -184,13 +184,13 @@ export function Player({ songs, loading, player, onOpenSettings, onAddToPlaylist
   useEffect(() => {
     if (songs.length > 0 && songs[player.index]) {
       const current = songs[player.index];
-      document.title = `${player.playing ? '▶' : '⏸'} ${current.title} - Fronto`;
+      document.title = `${player.playing ? '▶' : '⏸'} ${current.title} - ${current.artist}`;
     } else {
-      document.title = 'Fronto - Cyber Music Player';
+      document.title = 'Personal Tracklist - Fronto';
     }
     
     return () => {
-      document.title = 'Fronto - Cyber Music Player';
+      document.title = 'Personal Tracklist - Fronto';
     };
   }, [player.index, player.playing, songs]);
 
