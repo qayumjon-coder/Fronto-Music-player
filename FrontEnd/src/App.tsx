@@ -13,6 +13,7 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 
 import { LoadingScreen } from "./components/LoadingScreen";
 import { useEffect } from "react";
+import { HelmetProvider } from 'react-helmet-async';
 
 function MusicApp() {
   const { playlist, loading, addToPlaylist, removeFromPlaylist, removeMultipleFromPlaylist } = usePlaylist();
@@ -60,7 +61,9 @@ export default function App() {
   return (
     <AuthProvider>
       <SettingsProvider>
-        <MusicApp />
+        <HelmetProvider>
+          <MusicApp />
+        </HelmetProvider>
       </SettingsProvider>
     </AuthProvider>
   );

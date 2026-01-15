@@ -1,4 +1,5 @@
 import type { Song } from "../types/Song";
+import SEO from "./SEO";
 
 import { useSettings } from "../contexts/SettingsContext";
 import { Heart, Mic2, X, Upload, Search, Plus, Loader2, Check, Send } from "lucide-react";
@@ -180,19 +181,7 @@ export function Player({ songs, loading, player, onOpenSettings, onAddToPlaylist
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [player, isSearchOpen, showLyrics]);
 
-  // Update Page Title with current song
-  useEffect(() => {
-    if (songs.length > 0 && songs[player.index]) {
-      const current = songs[player.index];
-      document.title = `${player.playing ? '▶' : '⏸'} ${current.title} - ${current.artist}`;
-    } else {
-      document.title = 'Personal Tracklist - Fronto';
-    }
-    
-    return () => {
-      document.title = 'Personal Tracklist - Fronto';
-    };
-  }, [player.index, player.playing, songs]);
+
 
   const handleAddSong = async (song: Song) => {
       // Check if already in playlist (locally)
@@ -333,8 +322,20 @@ export function Player({ songs, loading, player, onOpenSettings, onAddToPlaylist
 
   const current: Song = songs[player.index];
 
+  const seoTitle = current 
+    ? `${player.playing ? '▶' : '⏸'} ${current.title} - ${current.artist}` 
+    : 'Music Player - Fronto';
+  const seoDesc = current
+    ? `Listen to ${current.title} by ${current.artist} on Fronto.`
+    : 'Experience music in a futuristic cyberpunk interface.';
+
   return (
     <>
+    <SEO 
+      title={seoTitle}
+      description={seoDesc}
+      image={current?.coverUrl}
+    />
     {/* Global Atmospheric Background */}
     <AmbientBackground playing={player.playing} analyser={player.analyser} />
 
