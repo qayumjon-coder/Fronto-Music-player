@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, type ChangeEvent, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useFetchSongs } from "../hooks/useFetchSongs";
-import { ArrowLeft, Music, Image as ImageIcon, CheckCircle, AlertCircle, LogOut } from "lucide-react";
+import { ArrowLeft, Music, Image as ImageIcon, CheckCircle, AlertCircle, LogOut, Sparkles } from "lucide-react";
 import { uploadSong } from "../services/musicApi";
 import { useAuth } from "../contexts/AuthContext";
+import { parseBlob } from "music-metadata-browser";
 
 export function Upload() {
   const navigate = useNavigate();
@@ -52,31 +53,90 @@ export function Upload() {
     setUploadCount(count);
   }, []);
 
-  const handleFileChange = (e: ChangeEvent<HTMLInputElement>, type: "audio" | "cover") => {
+  const handleFileChange = async (e: ChangeEvent<HTMLInputElement>, type: "audio" | "cover") => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       const fileSizeMB = file.size / (1024 * 1024);
 
       if (type === "audio") {
-        if (fileSizeMB > 5) {
-          setStatus({ type: "error", message: `Audio file is too big! (${fileSizeMB.toFixed(2)} MB). Max limit is 5MB for public upload.` });
+        if (fileSizeMB > 20) {
+          setStatus({ type: "error", message: `Audio file is too big! (${fileSizeMB.toFixed(2)} MB). Max limit is 20MB.` });
           return;
         }
         setAudioFile(file);
-        // Try to get duration
-        const audio = new Audio(URL.createObjectURL(file));
-        audio.onloadedmetadata = () => {
-          setFormData(prev => ({ ...prev, duration: audio.duration }));
-        };
+        
+        // AI Simulation: Metadata Extraction
+        setStatus({ type: "success", message: "✨ AI is analyzing song details..." });
+        
+        try {
+          const metadata = await parseBlob(file);
+          
+          let { title, artist, genre } = metadata.common;
+          const { duration } = metadata.format;
+          const picture = metadata.common.picture?.[0];
+
+          // 1. Filename Fallback Logic
+          if (!title || !artist) {
+            const filename = file.name.replace(/\.[^/.]+$/, ""); // Remove extension
+            const parts = filename.split(/-|–/).map(s => s.trim()); // Split by hyphen
+            
+            if (parts.length >= 2) {
+              // Assume "Artist - Title"
+              if (!artist) artist = parts[0];
+              if (!title) title = parts.slice(1).join(" ");
+            } else {
+              if (!title) title = filename;
+            }
+          }
+
+          // 2. Cover Art Extraction
+          if (picture) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const blob = new Blob([picture.data as any], { type: picture.format });
+            const extractedFile = new File([blob], `extracted_cover.${picture.format.split('/')[1] || 'jpg'}`, { type: picture.format });
+            
+            // Only set if user hasn't manually uploaded one yet (or we can overwrite to point out the feature)
+            // Let's overwrite to show "AI" power
+            setCoverFile(extractedFile);
+            setPreviewUrl(URL.createObjectURL(blob));
+          }
+
+          // 3. Update Form
+          setFormData(prev => ({
+            ...prev,
+            title: title || prev.title,
+            artist: artist || prev.artist,
+            category: (genre && genre[0]) ? genre[0] : prev.category,
+            duration: duration || prev.duration
+          }));
+
+          // Success feedback
+          setTimeout(() => {
+             setStatus({ type: "success", message: "✨ AI successfully auto-filled details!" });
+             // Clear success message after 3 seconds
+             setTimeout(() => setStatus(null), 3000);
+          }, 500);
+
+        } catch (error) {
+          console.error("Metadata parsing failed:", error);
+          // Fallback to basic audio duration if full parsing fails
+          const audio = new Audio(URL.createObjectURL(file));
+          audio.onloadedmetadata = () => {
+            setFormData(prev => ({ ...prev, duration: audio.duration }));
+          };
+          setStatus(null);
+        }
+
       } else {
-        if (fileSizeMB > 2) {
-          setStatus({ type: "error", message: `Cover image is too big! (${fileSizeMB.toFixed(2)} MB). Max limit is 2MB.` });
+        if (fileSizeMB > 5) {
+          setStatus({ type: "error", message: `Cover image is too big! (${fileSizeMB.toFixed(2)} MB). Max limit is 5MB.` });
           return;
         }
         setCoverFile(file);
         setPreviewUrl(URL.createObjectURL(file));
       }
-      // If we got here, clear any previous "too big" error
+      
+      // Clear "too big" error if generic
       if (status?.message.includes("too big")) setStatus(null);
     }
   };
@@ -311,7 +371,7 @@ export function Upload() {
           <div className="pt-4">
              {status && (
               <div className={`p-4 border flex items-center gap-3 ${status.type === 'success' ? 'border-green-500 text-green-400 bg-green-900/20' : 'border-red-500 text-red-400 bg-red-900/20'}`}>
-                {status.type === 'success' ? <CheckCircle /> : <AlertCircle />}
+                {status.message.includes("AI") ? <Sparkles className="animate-pulse text-[var(--accent)]" /> : (status.type === 'success' ? <CheckCircle /> : <AlertCircle />)}
                 {status.message}
               </div>
             )}

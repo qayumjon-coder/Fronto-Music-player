@@ -50,23 +50,23 @@ const translations = {
   },
   uz: {
     system_config: "TIZIM_SOZLAMALARI",
-    apply_exit: "SAQLASH VE CHIQISH",
-    color_scheme: "RANG TIZIMI",
+    apply_exit: "SAQLASH VA CHIQISH",
+    color_scheme: "RANG TUZILMASI",
     visual_modules: "VIZUAL MODULLAR",
     audio_modules: "OVOZ MODULLARI",
     gameplay_modules: "PLAYBACK MODULLARI",
     language: "TIL",
     upload: "YUKLASH",
     editor: "TAHRIRLASH",
-    config: "SOZLAMA",
-    playing: "O'YNAMOQDA",
+    config: "SOZLAMALAR",
+    playing: "IJRO ETILMOQDA",
     ready: "TAYYOR",
     loading: "Kutubxona yuklanmoqda...",
     no_songs: "Kutubxonada qo'shiq topilmadi",
     tracklist: "TREKLAR",
-    lyrics: "MATN",
+    lyrics: "QO'SHIQ MATNI",
     fade: "FADE",
-    scale: "SCALE"
+    scale: "KATTALASHTIRISH"
   }
 };
 
