@@ -4,7 +4,7 @@ import { useFetchSongs } from "../hooks/useFetchSongs";
 import { ArrowLeft, Music, Image as ImageIcon, CheckCircle, AlertCircle, LogOut, Sparkles } from "lucide-react";
 import { uploadSong } from "../services/musicApi";
 import { useAuth } from "../contexts/AuthContext";
-import { parseBlob } from "music-metadata-browser";
+import { parseBlob } from "music-metadata";
 
 export function Upload() {
   const navigate = useNavigate();
@@ -52,7 +52,6 @@ export function Upload() {
     const count = parseInt(localStorage.getItem('user_upload_count') || '0');
     setUploadCount(count);
   }, []);
-
   const handleFileChange = async (e: ChangeEvent<HTMLInputElement>, type: "audio" | "cover") => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
@@ -69,7 +68,13 @@ export function Upload() {
         setStatus({ type: "success", message: "✨ AI is analyzing song details..." });
         
         try {
-          const metadata = await parseBlob(file);
+          // Race between parser and a 3-second timeout
+          const metadataPromise = parseBlob(file);
+          const timeoutPromise = new Promise<never>((_, reject) => 
+            setTimeout(() => reject(new Error("Analysis timed out")), 3000)
+          );
+
+          const metadata = await Promise.race([metadataPromise, timeoutPromise]);
           
           let { title, artist, genre } = metadata.common;
           const { duration } = metadata.format;
@@ -95,8 +100,6 @@ export function Upload() {
             const blob = new Blob([picture.data as any], { type: picture.format });
             const extractedFile = new File([blob], `extracted_cover.${picture.format.split('/')[1] || 'jpg'}`, { type: picture.format });
             
-            // Only set if user hasn't manually uploaded one yet (or we can overwrite to point out the feature)
-            // Let's overwrite to show "AI" power
             setCoverFile(extractedFile);
             setPreviewUrl(URL.createObjectURL(blob));
           }
@@ -111,27 +114,43 @@ export function Upload() {
           }));
 
           // Success feedback
-          setTimeout(() => {
-             setStatus({ type: "success", message: "✨ AI successfully auto-filled details!" });
-             // Clear success message after 3 seconds
-             setTimeout(() => setStatus(null), 3000);
-          }, 500);
+          setStatus({ type: "success", message: "✨ AI successfully auto-filled details!" });
+          setTimeout(() => setStatus(null), 3000);
 
         } catch (error) {
           console.error("Metadata parsing failed:", error);
-          setStatus({ 
-            type: "error", 
-            message: `AI Error: ${error instanceof Error ? error.message : "Could not read metadata"}. Falling back to basic mode.` 
-          });
           
-          // Fallback to basic audio duration if full parsing fails
+          // Fallback to filename logic even if metadata fails
+          let fallbackTitle = "";
+          let fallbackArtist = "";
+          
+          const filename = file.name.replace(/\.[^/.]+$/, ""); 
+          const parts = filename.split(/-|–/).map(s => s.trim());
+          if (parts.length >= 2) {
+            fallbackArtist = parts[0];
+            fallbackTitle = parts.slice(1).join(" ");
+          } else {
+             fallbackTitle = filename;
+          }
+
+          // Get duration via Audio as fallback
           const audio = new Audio(URL.createObjectURL(file));
           audio.onloadedmetadata = () => {
-            setFormData(prev => ({ ...prev, duration: audio.duration }));
+            setFormData(prev => ({ 
+              ...prev, 
+              duration: audio.duration,
+              title: prev.title || fallbackTitle,
+              artist: prev.artist || fallbackArtist
+            }));
           };
           
-          // Clear error after 5s
-          setTimeout(() => setStatus(null), 5000);
+           setStatus({ 
+            type: "error", 
+            message: `AI Analysis Skipped: ${error instanceof Error ? error.message : "Unavailable"}. Using filename.` 
+          });
+          
+          // Clear error after 3s
+          setTimeout(() => setStatus(null), 3000);
         }
 
       } else {
