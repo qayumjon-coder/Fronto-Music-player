@@ -119,12 +119,19 @@ export function Upload() {
 
         } catch (error) {
           console.error("Metadata parsing failed:", error);
+          setStatus({ 
+            type: "error", 
+            message: `AI Error: ${error instanceof Error ? error.message : "Could not read metadata"}. Falling back to basic mode.` 
+          });
+          
           // Fallback to basic audio duration if full parsing fails
           const audio = new Audio(URL.createObjectURL(file));
           audio.onloadedmetadata = () => {
             setFormData(prev => ({ ...prev, duration: audio.duration }));
           };
-          setStatus(null);
+          
+          // Clear error after 5s
+          setTimeout(() => setStatus(null), 5000);
         }
 
       } else {
