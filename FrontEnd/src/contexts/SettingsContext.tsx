@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 
-type Theme = "aqua" | "green" | "amber" | "pink" | "red";
+type Theme = "aqua" | "green" | "amber" | "pink" | "red" | "neon" | "toxic" | "sunset" | "matrix";
 type Language = "en" | "uz";
 type VisualizerMode = "bars" | "wave" | "fade" | "scale" | "off";
 
@@ -100,6 +100,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       amber: { primary: "#FFB000", secondary: "#885500" },
       pink: { primary: "#FF00FF", secondary: "#880088" },
       red:   { primary: "#FF0000", secondary: "#880000" },
+      neon:   { primary: "#00FFFF", secondary: "#FF00FF" },
+      toxic:  { primary: "#00FF00", secondary: "#9D00FF" },
+      sunset: { primary: "#FFCC00", secondary: "#FF0066" },
+      matrix: { primary: "#00FF00", secondary: "#003300" },
     };
     const selected = colors[theme] || colors.aqua;
     root.style.setProperty("--text-primary", selected.primary);

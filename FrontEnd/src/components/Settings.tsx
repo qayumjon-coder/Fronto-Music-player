@@ -6,7 +6,7 @@ interface SettingsProps {
   onClose: () => void;
 }
 
-type Theme = "aqua" | "green" | "amber" | "pink" | "red";
+type Theme = "aqua" | "green" | "amber" | "pink" | "red" | "neon" | "toxic" | "sunset" | "matrix";
 
 export function Settings({ isOpen, onClose }: SettingsProps) {
   const navigate = useNavigate();
@@ -59,27 +59,45 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                 <div className="h-1 w-1 bg-[var(--text-primary)]"></div>
                 <label className="text-[var(--text-secondary)] text-[10px] font-bold uppercase tracking-[0.3em] font-mono">{t('color_scheme')}</label>
               </div>
-              <div className="grid grid-cols-5 gap-3">
-                {(["aqua", "green", "amber", "pink", "red"] as Theme[]).map((c) => (
-                  <button
-                    key={c}
-                    onClick={() => setTheme(c)}
-                    className={`group relative h-10 w-full border transition-all duration-300 ${
-                      theme === c 
-                        ? "border-[var(--text-primary)] shadow-[0_0_15px_var(--text-primary)]" 
-                        : "border-[var(--text-secondary)]/30 hover:border-[var(--text-primary)]/50"
-                    }`}
-                    title={c}
-                  >
-                    <div 
-                      className={`absolute inset-1 transition-opacity duration-300 ${theme === c ? 'opacity-100' : 'opacity-40 group-hover:opacity-70'}`}
-                      style={{ backgroundColor: c === 'aqua' ? '#00FFFF' : c === 'green' ? '#00FF00' : c === 'amber' ? '#FFB000' : c === 'pink' ? '#FF00FF' : '#FF0000' }}
-                    />
-                    {theme === c && (
-                      <div className="absolute inset-0 border border-[var(--text-primary)] animate-pulse" />
-                    )}
-                  </button>
-                ))}
+              <div className="grid grid-cols-5 sm:grid-cols-9 gap-2">
+                {(["aqua", "green", "amber", "pink", "red", "neon", "toxic", "sunset", "matrix"] as Theme[]).map((c) => {
+                  // Helper for gradient preview
+                  const getGradient = (t: Theme) => {
+                    switch(t) {
+                      case 'neon': return 'linear-gradient(135deg, #00FFFF 50%, #FF00FF 50%)';
+                      case 'toxic': return 'linear-gradient(135deg, #00FF00 50%, #9D00FF 50%)';
+                      case 'sunset': return 'linear-gradient(135deg, #FFCC00 50%, #FF0066 50%)';
+                      case 'matrix': return 'linear-gradient(135deg, #00FF00 50%, #003300 50%)';
+                      case 'aqua': return '#00FFFF';
+                      case 'green': return '#00FF00';
+                      case 'amber': return '#FFB000';
+                      case 'pink': return '#FF00FF';
+                      case 'red': return '#FF0000';
+                      default: return '#00FFFF';
+                    }
+                  };
+
+                  return (
+                    <button
+                      key={c}
+                      onClick={() => setTheme(c)}
+                      className={`group relative h-10 w-full border transition-all duration-300 ${
+                        theme === c 
+                          ? "border-[var(--text-primary)] shadow-[0_0_15px_var(--text-primary)]" 
+                          : "border-[var(--text-secondary)]/30 hover:border-[var(--text-primary)]/50"
+                      }`}
+                      title={c.toUpperCase()}
+                    >
+                      <div 
+                        className={`absolute inset-1 transition-opacity duration-300 ${theme === c ? 'opacity-100' : 'opacity-40 group-hover:opacity-70'}`}
+                        style={{ background: getGradient(c) }}
+                      />
+                      {theme === c && (
+                        <div className="absolute inset-0 border border-[var(--text-primary)] animate-pulse" />
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
