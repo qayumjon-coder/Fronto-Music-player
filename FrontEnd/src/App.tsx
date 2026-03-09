@@ -63,7 +63,10 @@ export default function App() {
       <SettingsProvider>
         <HelmetProvider>
           <MusicApp />
-          <Analytics />
+          <Analytics 
+            debug={true} 
+            mode={import.meta.env.MODE === 'development' ? 'development' : 'production'} 
+          />
         </HelmetProvider>
       </SettingsProvider>
     </AuthProvider>
