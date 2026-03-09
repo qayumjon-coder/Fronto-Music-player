@@ -10,7 +10,7 @@ import { useAudioPlayer } from "./hooks/useAudioPlayer";
 import { SettingsProvider } from "./contexts/SettingsContext";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
-
+import { Analytics } from "@vercel/analytics/react"
 import { LoadingScreen } from "./components/LoadingScreen";
 import { useEffect } from "react";
 import { HelmetProvider } from 'react-helmet-async';
@@ -63,6 +63,7 @@ export default function App() {
       <SettingsProvider>
         <HelmetProvider>
           <MusicApp />
+          <Analytics />
         </HelmetProvider>
       </SettingsProvider>
     </AuthProvider>
