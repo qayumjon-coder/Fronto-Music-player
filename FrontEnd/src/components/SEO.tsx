@@ -51,6 +51,8 @@ const SEO: React.FC<SEOProps> = ({
           "image": image
         })}
       </script>
+
+      <link rel="canonical" href={url} />
     </Helmet>
   );
 };

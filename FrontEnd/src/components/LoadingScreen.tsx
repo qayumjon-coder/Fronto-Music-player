@@ -34,7 +34,7 @@ export function LoadingScreen() {
     <div className="fixed inset-0 z-[1000] bg-black flex flex-col items-center justify-center font-mono">
       <div className="w-64 space-y-4">
         <div className="flex justify-between text-[10px] text-[var(--accent)] tracking-widest animate-pulse">
-            <span>SYS_BOOT_REv.4.5</span>
+            <span>SYS_BOOT_REv.5.0</span>
             <span>{progress}%</span>
         </div>
         
