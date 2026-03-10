@@ -554,3 +554,139 @@ export function AmbientBackground({ playing, analyser }: VisualizerProps) {
     />
   );
 }
+
+export function ConcentricWavesVisualizer({ playing, analyser }: VisualizerProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const animationRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const bufferLength = analyser ? analyser.frequencyBinCount : 0;
+    const dataArray = new Uint8Array(bufferLength);
+
+    // Array of objects holding phase and color for each ring
+    const numRings = 10;
+    const rings: { freqModifier: number; speedOffset: number; nodes: number }[] = [];
+    for (let i = 0; i < numRings; i++) {
+        rings.push({
+            freqModifier: 1 + (i * 0.15),
+            speedOffset: 0.5 + (i * 0.1),
+            nodes: 4 + Math.floor(i / 2) * 2 // Evens only for symmetrical waves
+        });
+    }
+
+    let frameCount = 0;
+    let currentAccent = '#00ffff'; // Default fallback
+
+    const animate = () => {
+      if (canvas.width !== canvas.clientWidth || canvas.height !== canvas.clientHeight) {
+        canvas.width = canvas.clientWidth;
+        canvas.height = canvas.clientHeight;
+      }
+
+      // Occasionally sample the theme color to adapt to user changes without tanking performance
+      if (frameCount++ % 30 === 0) {
+         currentAccent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#00ffff';
+      }
+
+      const cx = canvas.width / 2;
+      const cy = canvas.height / 2;
+      
+      ctx.clearRect(0, 0, canvas.width, canvas.height); // completely clear previous frame
+      
+      if (!playing || !analyser) {
+        // Draw static faint rings when not playing
+        for (let r = 0; r < numRings; r++) {
+            const radius = 60 + (r * 20);
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+            ctx.strokeStyle = currentAccent;
+            ctx.globalAlpha = 0.1;
+            ctx.lineWidth = 1;
+            ctx.stroke();
+        }
+        ctx.globalAlpha = 1.0;
+        return;
+      }
+
+      analyser.getByteFrequencyData(dataArray);
+
+      ctx.globalCompositeOperation = 'screen';
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+
+      const time = performance.now() / 1000;
+
+      for (let r = 0; r < numRings; r++) {
+          const ringInfo = rings[r];
+          // Smaller base radius for a tighter look
+          const baseRadius = 60 + (r * 25); 
+          
+          ctx.beginPath();
+          
+          ctx.strokeStyle = currentAccent;
+          ctx.globalAlpha = Math.max(0.05, 0.7 - (r * 0.05));
+          ctx.lineWidth = 1 + (r * 0.05); // Thinner outer lines compared to original
+          ctx.shadowBlur = 5;
+          ctx.shadowColor = currentAccent;
+
+          const numPoints = 180; // fidelity of the circle
+          const angleStep = (Math.PI * 2) / numPoints;
+          
+          // Speed offsets
+          const waveTime = time * ringInfo.speedOffset * 3;
+
+          for (let i = 0; i <= numPoints; i++) {
+              const angle = i * angleStep;
+              
+              // Sample frequency data symmetrically
+              const freqIndex = Math.floor(Math.abs(Math.sin(angle)) * (bufferLength * 0.3)); 
+              const freqValue = dataArray[freqIndex] || 0;
+              
+              const audioResponse = (freqValue / 255); 
+              
+              // Combine sine waves to make "wavy" circle edges explicitly linked to audio
+              const waviness = audioResponse * 30 * ringInfo.freqModifier * Math.sin(angle * ringInfo.nodes + waveTime);
+
+              const currentRadius = baseRadius + waviness + (audioResponse * 10);
+
+              const x = cx + Math.cos(angle) * currentRadius;
+              const y = cy + Math.sin(angle) * currentRadius;
+
+              if (i === 0) {
+                  ctx.moveTo(x, y);
+              } else {
+                  ctx.lineTo(x, y);
+              }
+          }
+          
+          ctx.closePath();
+          ctx.stroke();
+      }
+
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = 1.0;
+      ctx.shadowBlur = 0;
+
+      animationRef.current = requestAnimationFrame(animate);
+    };
+
+    animate();
+
+    return () => {
+      if (animationRef.current) cancelAnimationFrame(animationRef.current);
+    };
+  }, [playing, analyser]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="absolute inset-0 w-full h-full pointer-events-none mix-blend-screen opacity-80"
+      style={{ zIndex: 0 }}
+    />
+  );
+}

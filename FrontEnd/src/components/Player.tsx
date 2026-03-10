@@ -11,7 +11,7 @@ import { Playlist } from "./Playlist";
 import { ProgressBar } from "./ProgressBar";
 import { PlaybackControls } from "./PlaybackControls";
 import { VolumeControl } from "./VolumeControl";
-import { Visualizer, FadeVisualizer, useBeatScale, AmbientBackground } from "./Visualizer";
+import { Visualizer, FadeVisualizer, useBeatScale, AmbientBackground, ConcentricWavesVisualizer } from "./Visualizer";
 import { formatTime } from "../utils/formatTime";
 import { useState, useEffect, useRef } from "react";
 
@@ -448,6 +448,16 @@ export function Player({ songs, loading, player, onOpenSettings, onAddToPlaylist
               <div className="relative group/cover">
                 {/* Rotating Inner Glow */}
                 <div className="absolute -inset-4 bg-[var(--accent)]/10 rounded-full blur-2xl animate-pulse opacity-0 group-hover/cover:opacity-100 transition-opacity duration-700"></div>
+                
+                {/* 
+                  CONCENTRIC RINGS FOR SCALE VISUALIZER 
+                  Placed absolutely behind the actual cover image layer, size 300% to prevent clipping
+                */}
+                {visualizerMode === 'scale' && (
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center w-[300%] h-[300%] opacity-60 pointer-events-none -z-10">
+                    <ConcentricWavesVisualizer playing={player.playing} analyser={player.analyser} />
+                  </div>
+                )}
                 
                 <div className="relative w-48 h-48 md:w-60 md:h-60 lg:w-64 lg:h-64 aspect-square border border-[var(--text-secondary)]/30 p-1 bg-black/40 backdrop-blur-sm animate-in zoom-in-95 duration-500 shrink-0">
                   {/* Decorative corner accents for cover */}
