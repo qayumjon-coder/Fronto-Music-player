@@ -3,6 +3,7 @@ import type { Song } from "../types/Song";
 import { useSoundEffects } from "../hooks/useSoundEffects";
 import { Trash2, MoreVertical, Check, Square, CheckSquare2, X } from "lucide-react";
 import { ConfirmDeleteModal } from "./ConfirmDeleteModal";
+import { updateSong } from "../services/musicApi";
 
 interface PlaylistProps {
   songs: Song[];
@@ -20,6 +21,31 @@ export function Playlist({ songs, currentSong, onSelectSong, onRemove, onBulkRem
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ type: 'single' | 'bulk', id?: number, title?: string } | null>(null);
+
+  // Auto-heal missing track durations
+  const [dynamicDurations, setDynamicDurations] = useState<Record<number, number>>({});
+  const fetchedDurations = useRef<Set<number>>(new Set());
+
+  useEffect(() => {
+    songs.forEach(song => {
+      // If the song has no duration and hasn't been fetched yet
+      if (!song.duration && song.url && !fetchedDurations.current.has(song.id)) {
+        fetchedDurations.current.add(song.id);
+        const audio = new Audio(song.url);
+        audio.onloadedmetadata = () => {
+          if (audio.duration && isFinite(audio.duration)) {
+             // 1. Update the UI locally for an immediate fix
+             setDynamicDurations(prev => ({ ...prev, [song.id]: audio.duration }));
+             // 2. Quietly update the database so it's permanently fixed
+             updateSong(song.id, { duration: audio.duration }).catch(console.error);
+          }
+        };
+        audio.onerror = () => {
+             console.warn("Failed to load metadata for track ID:", song.id);
+        };
+      }
+    });
+  }, [songs]);
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -90,7 +116,7 @@ export function Playlist({ songs, currentSong, onSelectSong, onRemove, onBulkRem
   const isSelectionMode = selectedIds.size > 0;
 
   function formatDuration(d?: number) {
-    if (!d) return '--:--';
+    if (!d || !isFinite(d)) return '--:--';
     const mins = Math.floor(d / 60);
     const secs = Math.floor(d % 60).toString().padStart(2, '0');
     return `${mins}:${secs}`;
@@ -194,7 +220,7 @@ export function Playlist({ songs, currentSong, onSelectSong, onRemove, onBulkRem
                     {song.artist}
                   </div>
                   <div className={`text-[8px] font-mono shrink-0 opacity-40 ${isActive ? 'text-[var(--accent)] opacity-80' : ''}`}>
-                    {formatDuration(song.duration)}
+                    {formatDuration(song.duration || dynamicDurations[song.id])}
                   </div>
                 </div>
               </button>

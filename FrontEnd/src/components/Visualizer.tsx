@@ -8,7 +8,7 @@ interface VisualizerProps {
 
 export function Visualizer({ playing, analyser }: VisualizerProps) {
   const { visualizerMode } = useSettings();
-  
+
   // Refs for Bars
   const [barCount, setBarCount] = useState(32);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -24,7 +24,7 @@ export function Visualizer({ playing, analyser }: VisualizerProps) {
   }, []);
 
   const BAR_COUNT = barCount;
-  
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number | null>(null);
   const valuesRef = useRef<number[]>(new Array(32).fill(5)); // Keep values buffer at max size for stability
@@ -34,7 +34,7 @@ export function Visualizer({ playing, analyser }: VisualizerProps) {
     if (animationRef.current) cancelAnimationFrame(animationRef.current);
 
     if (visualizerMode === 'off' || visualizerMode === 'fade' || visualizerMode === 'scale') {
-        return;
+      return;
     }
 
     const bufferLength = analyser ? analyser.frequencyBinCount : 0;
@@ -42,127 +42,279 @@ export function Visualizer({ playing, analyser }: VisualizerProps) {
 
     // WAVE MODE (Canvas)
     if (visualizerMode === 'wave') {
-        const canvas = canvasRef.current;
-        if (!canvas) return;
+      const canvas = canvasRef.current;
+      if (!canvas) return;
 
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
 
-        const animateWave = () => {
-            // Resize canvas to match display size
-            if (canvas.width !== canvas.clientWidth || canvas.height !== canvas.clientHeight) {
-                canvas.width = canvas.clientWidth;
-                canvas.height = canvas.clientHeight;
-            }
-
-            const width = canvas.width;
-            const height = canvas.height;
-
-            ctx.clearRect(0, 0, width, height);
-
-            if (!playing || !analyser) {
-                // Draw a flat line if not playing
-                ctx.beginPath();
-                ctx.moveTo(0, height / 2);
-                ctx.lineTo(width, height / 2);
-                ctx.strokeStyle = 'rgba(0, 255, 255, 0.2)'; // Faint line
-                ctx.lineWidth = 2;
-                ctx.stroke();
-                // animationRef.current = requestAnimationFrame(animateWave); // Optional: keep animating? No need if static.
-                return;
-            }
-
-            analyser.getByteTimeDomainData(dataArray);
-
-            ctx.lineWidth = 2;
-            // Use CSS accent color if possible, or fallback. 
-            // We can get it from computed style or just use a default that matches 'aqua' theme for now
-            // or better: use getComputedStyle
-            const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#00FFFF';
-            ctx.strokeStyle = accentColor;
-            ctx.shadowBlur = 10;
-            ctx.shadowColor = accentColor;
-
-            // Calculate volume/energy for amplitude
-            let sum = 0;
-            for (let i = 0; i < bufferLength; i++) {
-                const v = dataArray[i] - 128; // Center at 0 (-128 to 128)
-                sum += v * v;
-            }
-            const rms = Math.sqrt(sum / bufferLength); 
-            // Scale RMS to a reasonable amplitude (e.g. 0 to height/2)
-            // base amplitude + music reaction
-            const amplitude = (rms / 64) * (height / 3); 
-
-            // Increment phase for movement
-            // Storing phase on the canvas element or closure would be better, 
-            // but for now let's use a static/global-ish approach or just a time-based one.
-            // Actually, we can use performance.now()
-            const time = performance.now() / 200; // Speed control
-            
-            ctx.lineJoin = 'round';
-            ctx.lineCap = 'round';
-            ctx.beginPath();
-            
-            // Draw Sine Wave
-            // We'll draw one or two periods across the width
-            const frequency = 0.02; // Controls how many peaks visible
-            
-            ctx.moveTo(0, height / 2);
-
-            for (let x = 0; x < width; x++) {
-                // y = A * sin(B * x + C) + D
-                // A = amplitude
-                // B = frequency
-                // C = phase (time)
-                // D = vertical shift (height / 2)
-                
-                const y = (height / 2) + Math.sin(x * frequency + time) * amplitude;
-                ctx.lineTo(x, y);
-            }
-
-            ctx.stroke();
-
-            animationRef.current = requestAnimationFrame(animateWave);
-        };
-        animateWave();
-    } 
-    
-    // BARS MODE (DOM Elements)
-    else if (visualizerMode === 'bars') {
-        // Collect refs
-        if (containerRef.current) {
-          barsRef.current = Array.from(containerRef.current.children) as HTMLDivElement[];
+      const animateWave = () => {
+        // Resize canvas to match display size
+        if (canvas.width !== canvas.clientWidth || canvas.height !== canvas.clientHeight) {
+          canvas.width = canvas.clientWidth;
+          canvas.height = canvas.clientHeight;
         }
 
-        const animateBars = () => {
-          if (playing && analyser) {
-            analyser.getByteFrequencyData(dataArray);
+        const width = canvas.width;
+        const height = canvas.height;
+
+        ctx.clearRect(0, 0, width, height);
+
+        if (!playing || !analyser) {
+          // Draw a flat line if not playing
+          ctx.beginPath();
+          ctx.moveTo(0, height / 2);
+          ctx.lineTo(width, height / 2);
+          ctx.strokeStyle = 'rgba(0, 255, 255, 0.2)'; // Faint line
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          // animationRef.current = requestAnimationFrame(animateWave); // Optional: keep animating? No need if static.
+          return;
+        }
+
+        analyser.getByteTimeDomainData(dataArray);
+
+        ctx.lineWidth = 2;
+        // Use CSS accent color if possible, or fallback. 
+        // We can get it from computed style or just use a default that matches 'aqua' theme for now
+        // or better: use getComputedStyle
+        const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#00FFFF';
+        ctx.strokeStyle = accentColor;
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = accentColor;
+
+        // Calculate volume/energy for amplitude
+        let sum = 0;
+        for (let i = 0; i < bufferLength; i++) {
+          const v = dataArray[i] - 128; // Center at 0 (-128 to 128)
+          sum += v * v;
+        }
+        const rms = Math.sqrt(sum / bufferLength);
+        // Scale RMS to a reasonable amplitude (e.g. 0 to height/2)
+        // base amplitude + music reaction
+        const amplitude = (rms / 64) * (height / 3);
+
+        // Increment phase for movement
+        // Storing phase on the canvas element or closure would be better, 
+        // but for now let's use a static/global-ish approach or just a time-based one.
+        // Actually, we can use performance.now()
+        const time = performance.now() / 200; // Speed control
+
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+
+        // Draw Sine Wave
+        // We'll draw one or two periods across the width
+        const frequency = 0.02; // Controls how many peaks visible
+
+        ctx.moveTo(0, height / 2);
+
+        for (let x = 0; x < width; x++) {
+          // y = A * sin(B * x + C) + D
+          // A = amplitude
+          // B = frequency
+          // C = phase (time)
+          // D = vertical shift (height / 2)
+
+          const y = (height / 2) + Math.sin(x * frequency + time) * amplitude;
+          ctx.lineTo(x, y);
+        }
+
+        ctx.stroke();
+
+        animationRef.current = requestAnimationFrame(animateWave);
+      };
+      animateWave();
+    }
+
+    // MULTIWAVE MODE (Canvas)
+    else if (visualizerMode === 'multiwave') {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      // Colors based on the provided image
+      const waveColors = [
+          'rgba(147, 51, 234, 0.7)',  // Purple
+          'rgba(236, 72, 153, 0.7)',  // Pink
+          'rgba(245, 158, 11, 0.7)',  // Orange
+          'rgba(253, 224, 71, 0.7)',  // Yellow
+          'rgba(34, 197, 94, 0.7)',   // Green
+          'rgba(59, 130, 246, 0.7)'   // Blue
+      ];
+      const numWaves = waveColors.length;
+
+      const animateMultiWave = () => {
+          if (canvas.width !== canvas.clientWidth || canvas.height !== canvas.clientHeight) {
+              canvas.width = canvas.clientWidth;
+              canvas.height = canvas.clientHeight;
           }
 
-          const targetValues = valuesRef.current.map((prevVal, i) => {
-            if (!playing || !analyser) return Math.max(5, prevVal * 0.9);
-            const dataIndex = Math.floor(i * 1.5) + 2; 
-            const rawValue = dataArray[dataIndex] || 0;
-            let target = (rawValue / 255) * 100 * 1.2; 
-            return Math.max(5, Math.min(100, target));
-          });
+          const width = canvas.width;
+          const height = canvas.height;
+          const centerY = height / 2;
 
-          valuesRef.current = valuesRef.current.map((prev, i) => {
-            const target = targetValues[i];
-            const next = prev + (target - prev) * 0.2; 
-            
-            const bar = barsRef.current[i];
-            if (bar) {
-                bar.style.height = `${next}%`;
-                bar.style.transform = 'none';
-            }
-            return next;
-          });
+          ctx.clearRect(0, 0, width, height);
 
-          animationRef.current = requestAnimationFrame(animateBars);
-        };
-        animateBars();
+          if (!playing || !analyser) {
+              ctx.beginPath();
+              ctx.moveTo(0, centerY);
+              ctx.lineTo(width, centerY);
+              ctx.strokeStyle = 'rgba(0, 255, 255, 0.2)';
+              ctx.lineWidth = 2;
+              ctx.stroke();
+              return;
+          }
+
+          analyser.getByteTimeDomainData(dataArray);
+          
+          // To make it react more dynamically like a visualizer, we can also use frequency data
+          const freqData = new Uint8Array(analyser.frequencyBinCount);
+          analyser.getByteFrequencyData(freqData);
+
+          let sum = 0;
+          for (let i = 0; i < bufferLength; i++) {
+              const v = dataArray[i] - 128;
+              sum += v * v;
+          }
+          const rms = Math.sqrt(sum / bufferLength); 
+          const baseAmplitude = (rms / 64) * (height / 3); 
+
+          const time = performance.now() / 1000;
+          
+          // Setup global styles for glowing, overlapping look
+          ctx.globalCompositeOperation = 'screen'; 
+          
+          for (let w = 0; w < numWaves; w++) {
+              const color = waveColors[w];
+              ctx.fillStyle = color;
+              
+              // Add a subtle glow
+              ctx.shadowBlur = 15;
+              ctx.shadowColor = color;
+              
+              const wavePhase = time * (1 + w * 0.5); 
+              const waveFreq = 0.003 + (w * 0.001);
+              
+              // Sample frequency data for this specific wave layer to give them independent reactions
+              const freqIdx = Math.floor((w / numWaves) * (freqData.length * 0.5)); // Focus on lower/mid freq
+              const freqAmpModifier = 1 + (freqData[freqIdx] / 255) * 1.5;
+
+              ctx.beginPath();
+              ctx.moveTo(0, centerY);
+
+              // Draw Top Half
+              for (let x = 0; x < width; x++) {
+                  const normX = x / width;
+                  
+                  // Envelope to taper ends to zero
+                  // Using a power sine curve for smoother tapering that matches the image
+                  const envelope = Math.pow(Math.sin(normX * Math.PI), 2);
+                  
+                  const dataIdx = Math.floor(normX * bufferLength);
+                  const signal = ((dataArray[dataIdx] - 128) / 128); // -1 to 1
+                  
+                  // Combine sine wave, audio signal, and envelope
+                  // The sine function gives the basic rolling wave shape
+                  const sineOffset = Math.sin(x * waveFreq + wavePhase);
+                  
+                  // Modulate the offset heavily by the frequency and amplitude
+                  const yOffset = (sineOffset * 0.5 + signal * (0.5 + w * 0.2)) * baseAmplitude * freqAmpModifier * envelope;
+                  
+                  const y = centerY - Math.abs(yOffset); // Top half only
+                  ctx.lineTo(x, y);
+              }
+
+              // Draw Bottom Half (Reflection)
+              for (let x = width; x >= 0; x--) {
+                  const normX = x / width;
+                  const envelope = Math.pow(Math.sin(normX * Math.PI), 2);
+                  const dataIdx = Math.floor(normX * bufferLength);
+                  const signal = ((dataArray[dataIdx] - 128) / 128);
+                  
+                  const sineOffset = Math.sin(x * waveFreq + wavePhase);
+                  const yOffset = (sineOffset * 0.5 + signal * (0.5 + w * 0.2)) * baseAmplitude * freqAmpModifier * envelope;
+                  
+                  const y = centerY + Math.abs(yOffset); // Bottom half reflection
+                  ctx.lineTo(x, y);
+              }
+              
+              ctx.closePath();
+              ctx.fill();
+          }
+
+          // Reset composite operation to default
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.shadowBlur = 0;
+          
+          // Add a central bright line to accentuate the audio center
+          ctx.beginPath();
+          ctx.moveTo(0, centerY);
+          
+          // We use the raw signal for the center line for crisp reaction
+          const centerAmp = baseAmplitude * 0.5;
+          for (let x = 0; x < width; x++) {
+              const normX = x / width;
+              const envelope = Math.pow(Math.sin(normX * Math.PI), 2);
+              const dataIdx = Math.floor(normX * bufferLength);
+              const signal = ((dataArray[dataIdx] - 128) / 128);
+              
+              const y = centerY + signal * centerAmp * envelope;
+              ctx.lineTo(x, y);
+          }
+          
+          // Use current theme accent color for the center line
+          const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#FFFFFF';
+          ctx.strokeStyle = `rgba(255, 255, 255, 0.4)`;
+          ctx.lineWidth = 1;
+          ctx.shadowBlur = 5;
+          ctx.shadowColor = accentColor;
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+
+          animationRef.current = requestAnimationFrame(animateMultiWave);
+      };
+      animateMultiWave();
+    }
+
+    // BARS MODE (DOM Elements)
+    else if (visualizerMode === 'bars') {
+      // Collect refs
+      if (containerRef.current) {
+        barsRef.current = Array.from(containerRef.current.children) as HTMLDivElement[];
+      }
+
+      const animateBars = () => {
+        if (playing && analyser) {
+          analyser.getByteFrequencyData(dataArray);
+        }
+
+        const targetValues = valuesRef.current.map((prevVal, i) => {
+          if (!playing || !analyser) return Math.max(5, prevVal * 0.9);
+          const dataIndex = Math.floor(i * 1.5) + 2;
+          const rawValue = dataArray[dataIndex] || 0;
+          let target = (rawValue / 255) * 100 * 1.2;
+          return Math.max(5, Math.min(100, target));
+        });
+
+        valuesRef.current = valuesRef.current.map((prev, i) => {
+          const target = targetValues[i];
+          const next = prev + (target - prev) * 0.2;
+
+          const bar = barsRef.current[i];
+          if (bar) {
+            bar.style.height = `${next}%`;
+            bar.style.transform = 'none';
+          }
+          return next;
+        });
+
+        animationRef.current = requestAnimationFrame(animateBars);
+      };
+      animateBars();
     }
 
     return () => {
@@ -172,8 +324,8 @@ export function Visualizer({ playing, analyser }: VisualizerProps) {
 
   if (visualizerMode === 'off' || visualizerMode === 'fade' || visualizerMode === 'scale') return null;
 
-  if (visualizerMode === 'wave') {
-      return <canvas ref={canvasRef} className="w-full h-full" />;
+  if (visualizerMode === 'wave' || visualizerMode === 'multiwave') {
+    return <canvas ref={canvasRef} className="w-full h-full" />;
   }
 
   return (
@@ -206,15 +358,15 @@ export function FadeVisualizer({ playing, analyser }: VisualizerProps) {
 
       if (playing && analyser) {
         analyser.getByteFrequencyData(dataArray);
-        
+
         // Calculate average volume of lower frequencies (bass)
         let sum = 0;
         const bassCount = 10; // Consider first 10 bins for bass
         for (let i = 0; i < bassCount; i++) {
-            sum += dataArray[i];
+          sum += dataArray[i];
         }
         const average = sum / bassCount;
-        
+
         // Normalize 0-255 to 0-1
         targetOption = average / 255;
       }
@@ -223,25 +375,25 @@ export function FadeVisualizer({ playing, analyser }: VisualizerProps) {
       intensityRef.current += (targetOption - intensityRef.current) * 0.1;
 
       if (overlayRef.current) {
-         // visual effect: inset box shadow (Left and Right only)
-         // Base intensity + music reaction
-         
-         // Spread defines how far inward the "fade" reaches
-         const spread = 20 + (intensityRef.current * 150); // 20px to 170px reach
-         
-         // Blur renders the softness
-         const blur = 20 + (intensityRef.current * 50);
+        // visual effect: inset box shadow (Left and Right only)
+        // Base intensity + music reaction
 
-         // Opacity is handled on the element, so we just set the shadow shape
-         const color = 'var(--accent)';
-         
-         // Left shadow: inset spread 0 blur color
-         // Right shadow: inset -spread 0 blur color
-         // Note: inset with positive X comes from Left. Inset with negative X comes from Right.
-         overlayRef.current.style.boxShadow = `inset ${spread/2}px 0 ${blur}px -10px ${color}, inset -${spread/2}px 0 ${blur}px -10px ${color}`;
-         
-         const opacity = 0.2 + (intensityRef.current * 0.6); // 0.2 to 0.8
-         overlayRef.current.style.opacity = opacity.toString();
+        // Spread defines how far inward the "fade" reaches
+        const spread = 20 + (intensityRef.current * 150); // 20px to 170px reach
+
+        // Blur renders the softness
+        const blur = 20 + (intensityRef.current * 50);
+
+        // Opacity is handled on the element, so we just set the shadow shape
+        const color = 'var(--accent)';
+
+        // Left shadow: inset spread 0 blur color
+        // Right shadow: inset -spread 0 blur color
+        // Note: inset with positive X comes from Left. Inset with negative X comes from Right.
+        overlayRef.current.style.boxShadow = `inset ${spread / 2}px 0 ${blur}px -10px ${color}, inset -${spread / 2}px 0 ${blur}px -10px ${color}`;
+
+        const opacity = 0.2 + (intensityRef.current * 0.6); // 0.2 to 0.8
+        overlayRef.current.style.opacity = opacity.toString();
       }
 
       animationRef.current = requestAnimationFrame(animate);
@@ -255,13 +407,13 @@ export function FadeVisualizer({ playing, analyser }: VisualizerProps) {
   }, [playing, analyser]);
 
   return (
-    <div 
-        ref={overlayRef} 
-        className="absolute inset-0 pointer-events-none transition-shadow duration-75 ease-out z-0 mix-blend-screen"
-        style={{
-            boxShadow: 'inset 20px 0 20px -10px var(--accent), inset -20px 0 20px -10px var(--accent)',
-            opacity: 0
-        }}
+    <div
+      ref={overlayRef}
+      className="absolute inset-0 pointer-events-none transition-shadow duration-75 ease-out z-0 mix-blend-screen"
+      style={{
+        boxShadow: 'inset 20px 0 20px -10px var(--accent), inset -20px 0 20px -10px var(--accent)',
+        opacity: 0
+      }}
     />
   );
 }
@@ -281,28 +433,28 @@ export function useBeatScale(playing: boolean, analyser?: AnalyserNode | null) {
 
       if (playing && analyser) {
         analyser.getByteFrequencyData(dataArray);
-        
+
         // Use very low frequencies for "kick" detection
         // Average first 4 bins (very bassy)
         let sum = 0;
         const kickBins = 4;
         for (let i = 0; i < kickBins; i++) {
-            sum += dataArray[i];
+          sum += dataArray[i];
         }
         const average = sum / kickBins;
-        
+
         // Map 0-255 to 1.0 - 1.4 (max 40% growth) for high visibility
         // Threshold 50 to catch most kicks
         if (average > 50) {
-            // (average - 50) / 205 * 0.4
-            const boost = ((average - 50) / 205) * 0.4;
-            targetScale = 1 + boost;
+          // (average - 50) / 205 * 0.4
+          const boost = ((average - 50) / 205) * 0.4;
+          targetScale = 1 + boost;
         }
       }
 
       // Smooth transition - faster response (0.3)
       currentScaleRef.current += (targetScale - currentScaleRef.current) * 0.3;
-      
+
       setScale(currentScaleRef.current);
       animationRef.current = requestAnimationFrame(animate);
     };
@@ -341,64 +493,64 @@ export function AmbientBackground({ playing, analyser }: VisualizerProps) {
 
       let intensity = 0;
       if (playing && analyser) {
-         analyser.getByteFrequencyData(dataArray);
-         // Calculate bass intensity
-         let sum = 0;
-         for(let i=0; i<20; i++) sum += dataArray[i];
-         intensity = sum / 20 / 255; // 0.0 to 1.0
+        analyser.getByteFrequencyData(dataArray);
+        // Calculate bass intensity
+        let sum = 0;
+        for (let i = 0; i < 20; i++) sum += dataArray[i];
+        intensity = sum / 20 / 255; // 0.0 to 1.0
       }
 
       // Smooth intensity could be added here similar to other hooks, 
       // but direct mapping is responsive.
-      
+
       // Draw Radial Gradient
       // Center of screen
       const cx = canvas.width / 2;
       const cy = canvas.height / 2;
-      
+
       // Max radius covers screen
       const maxRadius = Math.max(canvas.width, canvas.height) * 0.8;
-      
+
       // Radius pulses with intensity
       // Base radius 40% + up to 40% more
       const radius = maxRadius * (0.4 + (intensity * 0.4));
-      
+
       const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#00FFFF';
-      
+
       // Gradient
       const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
       // Inner color: accent with variable opacity
-      gradient.addColorStop(0, `${accent}${Math.floor(intensity * 80).toString(16).padStart(2,'0')}`); // hex alpha?
+      gradient.addColorStop(0, `${accent}${Math.floor(intensity * 80).toString(16).padStart(2, '0')}`); // hex alpha?
       // Actually closer to CSS: rgba...
       // Let's use globalAlpha for simplicity or just CSS opacity on canvas?
       // Canvas gradient color parsing is strict.
       // Let's use standard CSS color mix or just globalAlpha.
-      
+
       ctx.globalAlpha = 0.1 + (intensity * 0.3); // Base 0.1, max 0.4
-      
+
       ctx.fillStyle = gradient;
       // We need valid color strings for gradient. 
       // Assuming --accent is hex (e.g. #00FFFF).
       gradient.addColorStop(0, accent);
       gradient.addColorStop(1, 'transparent');
-      
+
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      
+
       animationRef.current = requestAnimationFrame(animate);
     };
-    
+
     animate();
 
     return () => {
-       if (animationRef.current) cancelAnimationFrame(animationRef.current);
+      if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
   }, [playing, analyser]);
 
   return (
-    <canvas 
-        ref={canvasRef}
-        className="fixed inset-0 w-full h-full pointer-events-none -z-10 transition-colors duration-500"
+    <canvas
+      ref={canvasRef}
+      className="fixed inset-0 w-full h-full pointer-events-none -z-10 transition-colors duration-500"
     />
   );
 }

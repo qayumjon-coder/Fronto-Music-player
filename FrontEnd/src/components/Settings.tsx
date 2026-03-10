@@ -10,13 +10,13 @@ type Theme = "aqua" | "green" | "amber" | "pink" | "red" | "neon" | "toxic" | "s
 
 export function Settings({ isOpen, onClose }: SettingsProps) {
   const navigate = useNavigate();
-  const { 
-    theme, setTheme, 
+  const {
+    theme, setTheme,
     language, setLanguage,
     soundEnabled, setSoundEnabled,
     visualizerMode, setVisualizerMode,
     autoplay, setAutoplay,
-    scanlines, setScanlines, 
+    scanlines, setScanlines,
     grid, setGrid,
     t
   } = useSettings();
@@ -42,7 +42,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
               </h2>
               <span className="text-[10px] font-mono text-[var(--text-secondary)]/50 tracking-widest mt-1">MODULE_ID: CFG-882</span>
             </div>
-            <button 
+            <button
               onClick={onClose}
               className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-mono text-xl transition-colors p-2"
             >
@@ -52,7 +52,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
 
           {/* Content Sections */}
           <div className="space-y-10 font-mono">
-            
+
             {/* Theme Selector */}
             <div className="space-y-4">
               <div className="flex items-center gap-2 mb-1">
@@ -63,7 +63,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                 {(["aqua", "green", "amber", "pink", "red", "neon", "toxic", "sunset", "matrix"] as Theme[]).map((c) => {
                   // Helper for gradient preview
                   const getGradient = (t: Theme) => {
-                    switch(t) {
+                    switch (t) {
                       case 'neon': return 'linear-gradient(135deg, #00FFFF 50%, #FF00FF 50%)';
                       case 'toxic': return 'linear-gradient(135deg, #00FF00 50%, #9D00FF 50%)';
                       case 'sunset': return 'linear-gradient(135deg, #FFCC00 50%, #FF0066 50%)';
@@ -81,14 +81,13 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                     <button
                       key={c}
                       onClick={() => setTheme(c)}
-                      className={`group relative h-10 w-full border transition-all duration-300 ${
-                        theme === c 
-                          ? "border-[var(--text-primary)] shadow-[0_0_15px_var(--text-primary)]" 
+                      className={`group relative h-10 w-full border transition-all duration-300 ${theme === c
+                          ? "border-[var(--text-primary)] shadow-[0_0_15px_var(--text-primary)]"
                           : "border-[var(--text-secondary)]/30 hover:border-[var(--text-primary)]/50"
-                      }`}
+                        }`}
                       title={c.toUpperCase()}
                     >
-                      <div 
+                      <div
                         className={`absolute inset-1 transition-opacity duration-300 ${theme === c ? 'opacity-100' : 'opacity-40 group-hover:opacity-70'}`}
                         style={{ background: getGradient(c) }}
                       />
@@ -108,18 +107,18 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                 <label className="text-[var(--text-secondary)] text-[10px] font-bold uppercase tracking-[0.3em] font-mono">{t('language')}</label>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                 <button 
-                   onClick={() => setLanguage('en')}
-                   className={`py-2 px-4 border text-[10px] font-bold tracking-widest transition-all ${language === 'en' ? 'border-[var(--text-primary)] bg-[var(--text-primary)] text-black' : 'border-[var(--text-secondary)]/30 text-[var(--text-secondary)] hover:border-[var(--text-secondary)]'}`}
-                 >
-                   LINK_EN
-                 </button>
-                 <button 
-                   onClick={() => setLanguage('uz')}
-                   className={`py-2 px-4 border text-[10px] font-bold tracking-widest transition-all ${language === 'uz' ? 'border-[var(--text-primary)] bg-[var(--text-primary)] text-black' : 'border-[var(--text-secondary)]/30 text-[var(--text-secondary)] hover:border-[var(--text-secondary)]'}`}
-                 >
-                   LINK_UZ
-                 </button>
+                <button
+                  onClick={() => setLanguage('en')}
+                  className={`py-2 px-4 border text-[10px] font-bold tracking-widest transition-all ${language === 'en' ? 'border-[var(--text-primary)] bg-[var(--text-primary)] text-black' : 'border-[var(--text-secondary)]/30 text-[var(--text-secondary)] hover:border-[var(--text-secondary)]'}`}
+                >
+                  LINK_EN
+                </button>
+                <button
+                  onClick={() => setLanguage('uz')}
+                  className={`py-2 px-4 border text-[10px] font-bold tracking-widest transition-all ${language === 'uz' ? 'border-[var(--text-primary)] bg-[var(--text-primary)] text-black' : 'border-[var(--text-secondary)]/30 text-[var(--text-secondary)] hover:border-[var(--text-secondary)]'}`}
+                >
+                  LINK_UZ
+                </button>
               </div>
             </div>
 
@@ -129,7 +128,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                 <div className="h-1 w-1 bg-[var(--text-primary)]"></div>
                 <label className="text-[var(--text-secondary)] text-[10px] font-bold uppercase tracking-[0.3em] font-mono">{t('visual_modules')}</label>
               </div>
-              
+
               <div className="grid gap-4">
                 <div className="flex items-center justify-between group cursor-pointer" onClick={() => setScanlines(!scanlines)}>
                   <span className={`text-[11px] tracking-widest font-bold ${scanlines ? 'text-[var(--text-primary)]' : 'text-[var(--text-secondary)]/60'}`}>
@@ -148,19 +147,19 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                     <div className={`w-3 h-3 transition-all duration-300 ${grid ? 'translate-x-5 bg-[var(--text-primary)] shadow-[0_0_8px_var(--text-primary)]' : 'translate-x-0 bg-[var(--text-secondary)]/20 shadow-none'}`} />
                   </div>
                 </div>
-                
+
                 <div className="pt-2">
                   <span className="text-[10px] text-[var(--text-secondary)] uppercase tracking-[0.2em] mb-3 block">VISUAL_ENGINE:</span>
-                  <div className="grid grid-cols-3 sm:grid-cols-5 border border-[var(--text-secondary)]/20 divide-x divide-y sm:divide-y-0 divide-[var(--text-secondary)]/20">
-                     {(['off', 'bars', 'wave', 'fade', 'scale']).map((mode) => (
-                       <button 
-                          key={mode}
-                          onClick={() => setVisualizerMode(mode as any)} 
-                          className={`px-1 py-2 text-[9px] font-bold tracking-tighter uppercase transition-colors ${visualizerMode === mode ? 'bg-[var(--text-primary)] text-black' : 'text-[var(--text-secondary)] hover:bg-[var(--text-secondary)]/5'}`}
-                        >
-                         {mode}
-                       </button>
-                     ))}
+                  <div className="grid grid-cols-3 sm:grid-cols-6 border border-[var(--text-secondary)]/20 divide-x divide-y sm:divide-y-0 divide-[var(--text-secondary)]/20">
+                    {(['off', 'bars', 'wave', 'multiwave', 'fade', 'scale']).map((mode) => (
+                      <button
+                        key={mode}
+                        onClick={() => setVisualizerMode(mode as any)}
+                        className={`px-1 py-2 text-[9px] font-bold tracking-tighter uppercase transition-colors ${visualizerMode === mode ? 'bg-[var(--text-primary)] text-black' : 'text-[var(--text-secondary)] hover:bg-[var(--text-secondary)]/5'}`}
+                      >
+                        {mode}
+                      </button>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -172,7 +171,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                 <div className="h-1 w-1 bg-[var(--text-primary)]"></div>
                 <label className="text-[var(--text-secondary)] text-[10px] font-bold uppercase tracking-[0.3em] font-mono">{t('audio_modules')}</label>
               </div>
-              
+
               <div className="grid gap-4">
                 <div className="flex items-center justify-between group cursor-pointer" onClick={() => setSoundEnabled(!soundEnabled)}>
                   <span className={`text-[11px] tracking-widest font-bold ${soundEnabled ? 'text-[var(--text-primary)]' : 'text-[var(--text-secondary)]/60'}`}>
@@ -195,7 +194,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
             </div>
             {/* Admin Link */}
             <div className="pt-2 border-t border-[var(--text-secondary)]/10">
-              <button 
+              <button
                 onClick={() => { onClose(); navigate('/admin'); }}
                 className="w-full flex items-center justify-between group p-3 border border-[var(--text-secondary)]/10 hover:border-[var(--accent)]/50 hover:bg-[var(--accent)]/5 transition-all text-left"
               >
@@ -206,9 +205,9 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
 
             {/* Footer Apply Button (inside scroll for accessibility) */}
             <div className="mt-4 pt-6 border-t border-[var(--text-secondary)]/30 text-center">
-              <button 
-                  onClick={onClose}
-                  className="w-full py-4 border border-[var(--text-primary)] text-[var(--text-primary)] hover:bg-[var(--text-primary)] hover:text-black transition-all font-black uppercase tracking-[0.4em] shadow-[inset_0_0_10px_var(--text-primary)/20] hover:shadow-[0_0_30px_var(--text-primary)] group text-xs"
+              <button
+                onClick={onClose}
+                className="w-full py-4 border border-[var(--text-primary)] text-[var(--text-primary)] hover:bg-[var(--text-primary)] hover:text-black transition-all font-black uppercase tracking-[0.4em] shadow-[inset_0_0_10px_var(--text-primary)/20] hover:shadow-[0_0_30px_var(--text-primary)] group text-xs"
               >
                 <span className="opacity-40 group-hover:opacity-100">{'>> '}</span>
                 {t('apply_exit')}

@@ -138,13 +138,14 @@ export function Upload() {
           audio.onloadedmetadata = () => {
             setFormData(prev => ({ 
               ...prev, 
+              // Wait for metadata, then update the duration
               duration: audio.duration,
               title: prev.title || fallbackTitle,
               artist: prev.artist || fallbackArtist
             }));
           };
           
-           setStatus({ 
+          setStatus({ 
             type: "error", 
             message: `AI Analysis Skipped: ${error instanceof Error ? error.message : "Unavailable"}. Using filename.` 
           });
@@ -183,12 +184,22 @@ export function Upload() {
     setLoading(true);
     setStatus(null);
 
+    // If duration is still 0, try to get it one last time before uploading
+    let finalDuration = formData.duration;
+    if (!finalDuration && audioFile) {
+        finalDuration = await new Promise((resolve) => {
+            const audio = new Audio(URL.createObjectURL(audioFile));
+            audio.onloadedmetadata = () => resolve(audio.duration);
+            audio.onerror = () => resolve(0);
+        });
+    }
+
     try {
       const newSong = await uploadSong(
         formData.title,
         formData.artist,
         formData.category,
-        formData.duration,
+        finalDuration,
         audioFile,
         coverFile
       );

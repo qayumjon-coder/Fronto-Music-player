@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 
 type Theme = "aqua" | "green" | "amber" | "pink" | "red" | "neon" | "toxic" | "sunset" | "matrix";
 type Language = "en" | "uz";
-type VisualizerMode = "bars" | "wave" | "fade" | "scale" | "off";
+type VisualizerMode = "bars" | "wave" | "multiwave" | "fade" | "scale" | "off";
 
 interface SettingsContextType {
   theme: Theme;
@@ -20,7 +20,7 @@ interface SettingsContextType {
   setScanlines: (enabled: boolean) => void;
   grid: boolean;
   setGrid: (enabled: boolean) => void;
-  
+
   // Helpers
   t: (key: string) => string;
 }
@@ -46,7 +46,8 @@ const translations = {
     tracklist: "TRACKLIST",
     lyrics: "LYRICS",
     fade: "FADE",
-    scale: "SCALE"
+    scale: "SCALE",
+    multiwave: "MULTIWAVE"
   },
   uz: {
     system_config: "TIZIM_SOZLAMALARI",
@@ -66,7 +67,8 @@ const translations = {
     tracklist: "TREKLAR",
     lyrics: "QO'SHIQ MATNI",
     fade: "FADE",
-    scale: "KATTALASHTIRISH"
+    scale: "KATTALASHTIRISH",
+    multiwave: "MULTIWAVE"
   }
 };
 
@@ -99,9 +101,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       green: { primary: "#00FF00", secondary: "#008800" },
       amber: { primary: "#FFB000", secondary: "#885500" },
       pink: { primary: "#FF00FF", secondary: "#880088" },
-      red:   { primary: "#FF0000", secondary: "#880000" },
-      neon:   { primary: "#00FFFF", secondary: "#FF00FF" },
-      toxic:  { primary: "#00FF00", secondary: "#9D00FF" },
+      red: { primary: "#FF0000", secondary: "#880000" },
+      neon: { primary: "#00FFFF", secondary: "#FF00FF" },
+      toxic: { primary: "#00FF00", secondary: "#9D00FF" },
       sunset: { primary: "#FFCC00", secondary: "#FF0066" },
       matrix: { primary: "#00FF00", secondary: "#003300" },
     };
