@@ -203,11 +203,11 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
               </button>
             </div>
 
-            {/* Footer Apply Button (inside scroll for accessibility) */}
-            <div className="mt-4 pt-6 border-t border-[var(--text-secondary)]/30 text-center">
+            {/* Footer Apply Button (Fixed to bottom for accessibility) */}
+            <div className="sticky bottom-0 mt-4 pt-4 pb-2 bg-[var(--bg-main)] border-t border-[var(--text-secondary)]/30 text-center">
               <button
                 onClick={onClose}
-                className="w-full py-4 border border-[var(--text-primary)] text-[var(--text-primary)] hover:bg-[var(--text-primary)] hover:text-black transition-all font-black uppercase tracking-[0.4em] shadow-[inset_0_0_10px_var(--text-primary)/20] hover:shadow-[0_0_30px_var(--text-primary)] group text-xs"
+                className="w-full py-4 border border-[var(--text-primary)] text-[var(--text-primary)] hover:bg-[var(--text-primary)] hover:text-black transition-all font-black uppercase tracking-[0.4em] shadow-[inset_0_0_10px_var(--text-primary)/20] hover:shadow-[0_0_30px_var(--text-primary)] group text-xs bg-[var(--bg-main)]"
               >
                 <span className="opacity-40 group-hover:opacity-100">{'>> '}</span>
                 {t('apply_exit')}

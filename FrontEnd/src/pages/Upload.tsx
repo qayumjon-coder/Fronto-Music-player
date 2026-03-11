@@ -135,15 +135,26 @@ export function Upload() {
 
           // Get duration via Audio as fallback
           const audio = new Audio(URL.createObjectURL(file));
-          audio.onloadedmetadata = () => {
-            setFormData(prev => ({ 
-              ...prev, 
-              // Wait for metadata, then update the duration
-              duration: audio.duration,
-              title: prev.title || fallbackTitle,
-              artist: prev.artist || fallbackArtist
-            }));
-          };
+          // Wrap in a promise to wait for metadata
+          await new Promise<void>((resolve) => {
+              audio.onloadedmetadata = () => {
+                setFormData(prev => ({ 
+                  ...prev, 
+                  duration: audio.duration,
+                  title: prev.title || fallbackTitle,
+                  artist: prev.artist || fallbackArtist
+                }));
+                resolve();
+              };
+              audio.onerror = () => {
+                 setFormData(prev => ({ 
+                  ...prev, 
+                  title: prev.title || fallbackTitle,
+                  artist: prev.artist || fallbackArtist
+                }));
+                resolve();
+              };
+          });
           
           setStatus({ 
             type: "error", 
@@ -205,15 +216,22 @@ export function Upload() {
       );
 
       // Automatically add to user's personalized playlist if there's room
-      const storedIdsStr = localStorage.getItem('my_playlist_ids') || "[]";
+      const storedIdsStr = localStorage.getItem('my_playlist_ids');
       try {
-        const storedIds: number[] = JSON.parse(storedIdsStr);
+        let storedIds: number[] = [];
+        if (storedIdsStr) {
+           storedIds = JSON.parse(storedIdsStr);
+           if (!Array.isArray(storedIds)) storedIds = [];
+        }
+        
         if (storedIds.length < 7 && !storedIds.includes(newSong.id)) {
           storedIds.push(newSong.id);
           localStorage.setItem('my_playlist_ids', JSON.stringify(storedIds));
         }
       } catch (e) {
-        console.error("Failed to update local playlist", e);
+        console.error("Failed to update local playlist. Resetting array.", e);
+        // Only start a new array here if it completely fails to parse, 
+        // avoiding clearing a good valid string that was just slightly malformed.
         localStorage.setItem('my_playlist_ids', JSON.stringify([newSong.id]));
       }
 
@@ -301,13 +319,13 @@ export function Upload() {
             {/* Back to Player Button */}
             <Link 
               to="/" 
-              className="group flex items-center gap-2 px-4 py-2 text-xs uppercase tracking-wider
-                       border border-[var(--text-secondary)] text-[var(--text-secondary)]
-                       hover:border-[var(--text-primary)] hover:text-[var(--text-primary)]
-                       transition-all duration-300"
+              className="group flex items-center gap-2 px-4 py-2 text-xs uppercase tracking-wider font-bold
+                       border border-[var(--text-secondary)] text-[var(--text-secondary)] bg-black/50
+                       hover:border-[var(--text-primary)] hover:text-[var(--text-primary)] hover:bg-[var(--text-secondary)]/10
+                       transition-all duration-300 shadow-[0_0_10px_rgba(255,255,255,0.05)]"
             >
               <ArrowLeft size={14} className="group-hover:-translate-x-1 transition-transform duration-300" />
-              <span>Back</span>
+              <span>Back to Player</span>
             </Link>
           </div>
         </div>

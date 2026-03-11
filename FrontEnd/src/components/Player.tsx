@@ -14,6 +14,7 @@ import { VolumeControl } from "./VolumeControl";
 import { Visualizer, FadeVisualizer, useBeatScale, AmbientBackground, ConcentricWavesVisualizer } from "./Visualizer";
 import { formatTime } from "../utils/formatTime";
 import { useState, useEffect, useRef } from "react";
+import { useDebounce } from "../hooks/useDebounce";
 
 
 import { useSoundEffects } from "../hooks/useSoundEffects";
@@ -82,6 +83,7 @@ export function Player({ songs, loading, player, onOpenSettings, onAddToPlaylist
   // Search Logic with History
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearchQuery = useDebounce(searchQuery, 400);
   const [searchResults, setSearchResults] = useState<Song[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [searchMsg, setSearchMsg] = useState<{type: 'success'|'error', text: string} | null>(null);
@@ -102,22 +104,31 @@ export function Player({ songs, loading, player, onOpenSettings, onAddToPlaylist
     setSearchResults([]);
   };
 
+  // Only search when the debounced query changes
+  useEffect(() => {
+    const runSearch = async () => {
+        if (!debouncedSearchQuery.trim()) {
+            setSearchResults([]);
+            return;
+        }
+        setIsSearching(true);
+        setSearchMsg(null);
+        try {
+            const results = await searchSongs(debouncedSearchQuery);
+            setSearchResults(results);
+            localStorage.setItem('lastSearchQuery', debouncedSearchQuery);
+            setLastSearchQuery(debouncedSearchQuery);
+        } catch(err) {
+            console.error('Search error:', err);
+        } finally {
+            setIsSearching(false);
+        }
+    };
+    runSearch();
+  }, [debouncedSearchQuery]);
+
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!searchQuery.trim()) return;
-    setIsSearching(true);
-    setSearchMsg(null);
-    try {
-        const results = await searchSongs(searchQuery);
-        setSearchResults(results);
-        // Save to history
-        localStorage.setItem('lastSearchQuery', searchQuery);
-        setLastSearchQuery(searchQuery);
-    } catch(err) {
-        console.error(err);
-    } finally {
-        setIsSearching(false);
-    }
   };
 
   // Populate search results with suggestions from DB on open/clear
@@ -214,8 +225,8 @@ export function Player({ songs, loading, player, onOpenSettings, onAddToPlaylist
                 <Search className="text-[var(--accent)]" size={32} />
             </div>
             
-            <h2 className="text-xl font-bold text-[var(--accent)] mb-4 tracking-widest font-mono uppercase text-glow">Playlist Empty</h2>
-            <p className="text-[var(--text-secondary)] text-center text-xs font-mono mb-8 uppercase tracking-[0.2em] leading-relaxed">
+            <h2 className="text-2xl font-bold text-white mb-4 tracking-widest font-mono uppercase text-glow drop-shadow-[0_0_15px_rgba(255,255,255,0.8)]">Playlist Empty</h2>
+            <p className="text-white font-bold text-sm font-mono mb-8 uppercase tracking-[0.2em] leading-relaxed drop-shadow-md">
                 Your personal frequency stack is currently offline. <br/> Access the database to synchronize local tracks.
             </p>
             
@@ -484,9 +495,9 @@ export function Player({ songs, loading, player, onOpenSettings, onAddToPlaylist
                       {/* Like Button - Always visible */}
                       <button 
                         onClick={toggleLike}
-                        className={`transition-all duration-300 transform hover:scale-110 active:scale-95 shrink-0 mt-1 ${likedIds.has(current.id) ? 'text-[var(--accent)] drop-shadow-[0_0_10px_var(--accent)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
+                        className={`p-3 md:p-4 rounded-full transition-all duration-300 transform hover:scale-110 active:scale-95 shrink-0 mt-1 ${likedIds.has(current.id) ? 'text-[var(--accent)] drop-shadow-[0_0_10px_var(--accent)] bg-[var(--accent)]/10' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--text-secondary)]/10'}`}
                       >
-                        <Heart size={16} fill={likedIds.has(current.id) ? "currentColor" : "none"} strokeWidth={1.5} />
+                        <Heart size={20} fill={likedIds.has(current.id) ? "currentColor" : "none"} strokeWidth={1.5} />
                       </button>
 
                       {/* Song Title & Artist - Always visible */}
@@ -503,10 +514,10 @@ export function Player({ songs, loading, player, onOpenSettings, onAddToPlaylist
                       {current.lyrics ? (
                         <button
                           onClick={() => setShowLyrics(true)}
-                          className="text-[var(--text-secondary)] hover:text-[var(--accent)] transition-all duration-300 transform hover:scale-110 active:scale-95 shrink-0 mt-1"
+                          className="p-3 md:p-4 rounded-full text-[var(--text-secondary)] hover:text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-all duration-300 transform hover:scale-110 active:scale-95 shrink-0 mt-1"
                           title="Show Lyrics"
                         >
-                          <Mic2 size={16} strokeWidth={1.5} />
+                          <Mic2 size={20} strokeWidth={1.5} />
                         </button>
                       ) : (
                           <div className="w-[16px] shrink-0" /> // Spacer to maintain layout balance

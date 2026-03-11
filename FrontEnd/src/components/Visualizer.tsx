@@ -123,7 +123,9 @@ export function Visualizer({ playing, analyser }: VisualizerProps) {
 
         ctx.stroke();
 
-        animationRef.current = requestAnimationFrame(animateWave);
+        if (playing) {
+            animationRef.current = requestAnimationFrame(animateWave);
+        }
       };
       animateWave();
     }
@@ -275,7 +277,9 @@ export function Visualizer({ playing, analyser }: VisualizerProps) {
           ctx.stroke();
           ctx.shadowBlur = 0;
 
-          animationRef.current = requestAnimationFrame(animateMultiWave);
+          if (playing) {
+              animationRef.current = requestAnimationFrame(animateMultiWave);
+          }
       };
       animateMultiWave();
     }
@@ -312,8 +316,12 @@ export function Visualizer({ playing, analyser }: VisualizerProps) {
           return next;
         });
 
-        animationRef.current = requestAnimationFrame(animateBars);
+        if (playing) {
+            animationRef.current = requestAnimationFrame(animateBars);
+        }
       };
+      
+      // We always run once to set the static baseline
       animateBars();
     }
 
@@ -396,9 +404,12 @@ export function FadeVisualizer({ playing, analyser }: VisualizerProps) {
         overlayRef.current.style.opacity = opacity.toString();
       }
 
-      animationRef.current = requestAnimationFrame(animate);
+      if (playing) {
+          animationRef.current = requestAnimationFrame(animate);
+      }
     };
 
+    // Run once to initialize
     animate();
 
     return () => {
@@ -456,9 +467,12 @@ export function useBeatScale(playing: boolean, analyser?: AnalyserNode | null) {
       currentScaleRef.current += (targetScale - currentScaleRef.current) * 0.3;
 
       setScale(currentScaleRef.current);
-      animationRef.current = requestAnimationFrame(animate);
+      if (playing) {
+          animationRef.current = requestAnimationFrame(animate);
+      }
     };
 
+    // Run once to initialize
     animate();
 
     return () => {
@@ -537,9 +551,12 @@ export function AmbientBackground({ playing, analyser }: VisualizerProps) {
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      animationRef.current = requestAnimationFrame(animate);
+      if (playing) {
+          animationRef.current = requestAnimationFrame(animate);
+      }
     };
 
+    // Run once to initialize
     animate();
 
     return () => {
@@ -672,9 +689,12 @@ export function ConcentricWavesVisualizer({ playing, analyser }: VisualizerProps
       ctx.globalAlpha = 1.0;
       ctx.shadowBlur = 0;
 
-      animationRef.current = requestAnimationFrame(animate);
+      if (playing) {
+          animationRef.current = requestAnimationFrame(animate);
+      }
     };
 
+    // Run once to initialize
     animate();
 
     return () => {

@@ -1,4 +1,5 @@
 import { supabase, type Song } from '../lib/supabase';
+import { DB_TABLES, STORAGE_BUCKETS } from '../utils/constants';
 
 /**
  * Fetch all songs from Supabase database
@@ -6,9 +7,10 @@ import { supabase, type Song } from '../lib/supabase';
 // Fetch all songs
 export async function getMusicList(): Promise<Song[]> {
   const { data, error } = await supabase
-    .from('songs')
+    .from(DB_TABLES.SONGS)
     .select('*')
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .limit(50); // Pagination/Limit fix to avoid overloading the client
 
   if (error) {
     console.error('Error fetching songs:', error);
@@ -25,7 +27,7 @@ export async function getMusicList(): Promise<Song[]> {
 // Search songs
 export async function searchSongs(query: string): Promise<Song[]> {
   const { data, error } = await supabase
-    .from('songs')
+    .from(DB_TABLES.SONGS)
     .select('*')
     .or(`title.ilike.%${query}%,artist.ilike.%${query}%`)
     .limit(20);
@@ -46,7 +48,7 @@ export async function getSongsByIds(ids: number[]): Promise<Song[]> {
   if (ids.length === 0) return [];
 
   const { data, error } = await supabase
-    .from('songs')
+    .from(DB_TABLES.SONGS)
     .select('*')
     .in('id', ids);
 
@@ -83,9 +85,15 @@ export async function uploadSong(
     const audioFileName = `audio/${timestamp}-${cleanAudioName}`;
     const coverFileName = `covers/${timestamp}-${cleanCoverName}`;
 
+    // Input sanitization for basic XSS protection
+    const sanitizeHtml = (str: string) => str.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const safeTitle = sanitizeHtml(title.trim());
+    const safeArtist = sanitizeHtml(artist.trim());
+    const safeCategory = sanitizeHtml(category.trim());
+
     // Upload audio file
     const { error: audioError } = await supabase.storage
-      .from('music-files')
+      .from(STORAGE_BUCKETS.MUSIC_FILES)
       .upload(audioFileName, audioFile, {
         contentType: audioFile.type,
         upsert: false,
@@ -98,7 +106,7 @@ export async function uploadSong(
 
     // Upload cover file
     const { error: coverError } = await supabase.storage
-      .from('music-files')
+      .from(STORAGE_BUCKETS.MUSIC_FILES)
       .upload(coverFileName, coverFile, {
         contentType: coverFile.type,
         upsert: false,
@@ -107,27 +115,31 @@ export async function uploadSong(
     if (coverError) {
       console.error('Cover upload error:', coverError);
       // Cleanup: delete audio file if cover upload fails
-      await supabase.storage.from('music-files').remove([audioFileName]);
+      try {
+        await supabase.storage.from(STORAGE_BUCKETS.MUSIC_FILES).remove([audioFileName]);
+      } catch(cleanupErr) {
+        console.error('CRITICAL: Orphaned audio file could not be cleaned up!', cleanupErr, audioFileName);
+      }
       throw new Error(`Cover Upload Failed: ${coverError.message}`);
     }
 
     // Get public URLs
     const { data: audioUrlData } = supabase.storage
-      .from('music-files')
+      .from(STORAGE_BUCKETS.MUSIC_FILES)
       .getPublicUrl(audioFileName);
 
     const { data: coverUrlData } = supabase.storage
-      .from('music-files')
+      .from(STORAGE_BUCKETS.MUSIC_FILES)
       .getPublicUrl(coverFileName);
 
     // Insert song metadata into database
     const { data: newSong, error: dbError } = await supabase
-      .from('songs')
+      .from(DB_TABLES.SONGS)
       .insert([
         {
-          title,
-          artist,
-          category,
+          title: safeTitle,
+          artist: safeArtist,
+          category: safeCategory,
           url: audioUrlData.publicUrl,
           cover_url: coverUrlData.publicUrl,
           duration,
@@ -141,7 +153,11 @@ export async function uploadSong(
     if (dbError) {
       console.error('Database error:', dbError);
       // Cleanup: delete uploaded files if database insert fails
-      await supabase.storage.from('music-files').remove([audioFileName, coverFileName]);
+      try {
+        await supabase.storage.from(STORAGE_BUCKETS.MUSIC_FILES).remove([audioFileName, coverFileName]);
+      } catch(cleanupErr) {
+        console.error('CRITICAL: Orphaned files could not be cleaned up!', cleanupErr, [audioFileName, coverFileName]);
+      }
       throw new Error('Failed to save song to database');
     }
 
@@ -165,7 +181,7 @@ export async function updateSong(
   if (newCoverFile) {
     // 1. Get old song data to find old cover path
     const { data: song } = await supabase
-      .from('songs')
+      .from(DB_TABLES.SONGS)
       .select('cover_url')
       .eq('id', id)
       .single();
@@ -175,14 +191,14 @@ export async function updateSong(
     const coverFileName = `covers/${timestamp}-${newCoverFile.name}`;
 
     const { error: uploadError } = await supabase.storage
-      .from('music-files')
+      .from(STORAGE_BUCKETS.MUSIC_FILES)
       .upload(coverFileName, newCoverFile);
 
     if (uploadError) throw uploadError;
 
     // 3. Get new public URL
     const { data: urlData } = supabase.storage
-      .from('music-files')
+      .from(STORAGE_BUCKETS.MUSIC_FILES)
       .getPublicUrl(coverFileName);
 
     // Add to updates
@@ -191,18 +207,24 @@ export async function updateSong(
     // 4. Delete old cover file if it exists
     if (song?.cover_url) {
       try {
-        const oldPath = song.cover_url.split('/music-files/')[1];
-        if (oldPath) {
-          await supabase.storage.from('music-files').remove([oldPath]);
+        const urlObj = new URL(song.cover_url);
+        const urlPath = urlObj.pathname;
+        const bucketPathIndex = urlPath.indexOf(`/${STORAGE_BUCKETS.MUSIC_FILES}/`);
+        if (bucketPathIndex !== -1) {
+            const oldPath = urlPath.substring(bucketPathIndex + `/${STORAGE_BUCKETS.MUSIC_FILES}/`.length);
+            if (oldPath) {
+              const { error: deleteErr }  = await supabase.storage.from(STORAGE_BUCKETS.MUSIC_FILES).remove([oldPath]);
+              if (deleteErr) console.error('Failed to delete old cover internally:', deleteErr, oldPath);
+            }
         }
       } catch (err) {
-        console.warn('Failed to delete old cover:', err);
+        console.warn('Failed to parse and delete old cover:', err);
       }
     }
   }
 
   const { data, error } = await supabase
-    .from('songs')
+    .from(DB_TABLES.SONGS)
     .update(finalUpdates)
     .eq('id', id)
     .select()
@@ -222,7 +244,7 @@ export async function updateSong(
 export async function deleteSong(id: number): Promise<void> {
   // First, get the song to retrieve file URLs
   const { data: song, error: fetchError } = await supabase
-    .from('songs')
+    .from(DB_TABLES.SONGS)
     .select('url, cover_url')
     .eq('id', id)
     .single();
@@ -233,7 +255,7 @@ export async function deleteSong(id: number): Promise<void> {
 
   // Delete from database
   const { error: deleteError } = await supabase
-    .from('songs')
+    .from(DB_TABLES.SONGS)
     .delete()
     .eq('id', id);
 
@@ -244,14 +266,26 @@ export async function deleteSong(id: number): Promise<void> {
 
   // Extract file paths from URLs and delete files from storage
   try {
-    const audioPath = song.url.split('/music-files/')[1];
-    const coverPath = song.cover_url.split('/music-files/')[1];
+    const parsePath = (urlString: string) => {
+        if (!urlString) return null;
+        try {
+            const urlPath = new URL(urlString).pathname;
+            const idx = urlPath.indexOf(`/${STORAGE_BUCKETS.MUSIC_FILES}/`);
+            if (idx !== -1) return urlPath.substring(idx + `/${STORAGE_BUCKETS.MUSIC_FILES}/`.length);
+        } catch(e) { /* ignore */ }
+        return null;
+    };
+
+    const audioPath = parsePath(song.url);
+    const coverPath = parsePath(song.cover_url);
 
     if (audioPath) {
-      await supabase.storage.from('music-files').remove([audioPath]);
+      const {error} = await supabase.storage.from(STORAGE_BUCKETS.MUSIC_FILES).remove([audioPath]);
+      if(error) console.error("CRITICAL: Orphaned audio file", error, audioPath);
     }
     if (coverPath) {
-      await supabase.storage.from('music-files').remove([coverPath]);
+      const {error} = await supabase.storage.from(STORAGE_BUCKETS.MUSIC_FILES).remove([coverPath]);
+      if(error) console.error("CRITICAL: Orphaned cover file", error, coverPath);
     }
   } catch (error) {
     // File deletion is best effort, don't fail the whole operation

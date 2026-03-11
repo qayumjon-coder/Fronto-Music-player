@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Lock, AlertCircle } from 'lucide-react';
+import { Lock, AlertCircle, ArrowLeft } from 'lucide-react';
 
 export function AdminLogin() {
   const [password, setPassword] = useState('');
@@ -73,12 +73,16 @@ export function AdminLogin() {
           </form>
 
           {/* Footer */}
-          <div className="mt-6 text-center">
-            <button
+          <div className="mt-8 pt-6 border-t border-[var(--text-secondary)]/30">
+             <button
               onClick={() => navigate('/')}
-              className="text-sm text-[var(--text-secondary)] hover:text-[var(--accent)] transition-colors font-mono uppercase tracking-wider"
+              className="group flex items-center justify-center gap-2 w-full py-3 text-sm uppercase tracking-wider font-bold
+                       border border-[var(--text-secondary)] text-[var(--text-secondary)] bg-black/50
+                       hover:border-[var(--text-primary)] hover:text-black hover:bg-[var(--text-primary)]
+                       transition-all duration-300 shadow-[0_0_10px_rgba(0,255,255,0.05)]"
             >
-              ← Back to Player
+              <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform duration-300" />
+              <span>Back to Player</span>
             </button>
           </div>
         </div>

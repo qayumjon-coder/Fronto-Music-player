@@ -8,24 +8,36 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD || 'admin123';
+const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD;
 const AUTH_KEY = 'music_admin_auth';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // Check localStorage on mount
+  // Check localStorage and sessionStorage on mount
   useEffect(() => {
     const stored = localStorage.getItem(AUTH_KEY);
-    if (stored === 'true') {
+    const sessionStore = sessionStorage.getItem(AUTH_KEY);
+    if (stored === 'true' && sessionStore === 'true') {
       setIsAuthenticated(true);
+    } else {
+      // If session is wiped but local remains (or vice versa), fail auth
+      setIsAuthenticated(false);
+      localStorage.removeItem(AUTH_KEY);
+      sessionStorage.removeItem(AUTH_KEY);
     }
   }, []);
 
   const login = (password: string): boolean => {
+    if (!ADMIN_PASSWORD) {
+        console.error("ADMIN_PASSWORD is not set in environment.");
+        return false;
+    }
+    
     if (password === ADMIN_PASSWORD) {
       setIsAuthenticated(true);
       localStorage.setItem(AUTH_KEY, 'true');
+      sessionStorage.setItem(AUTH_KEY, 'true');
       return true;
     }
     return false;
@@ -34,6 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     setIsAuthenticated(false);
     localStorage.removeItem(AUTH_KEY);
+    sessionStorage.removeItem(AUTH_KEY);
   };
 
   return (

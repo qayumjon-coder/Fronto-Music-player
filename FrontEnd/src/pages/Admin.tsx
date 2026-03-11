@@ -1,7 +1,9 @@
 import { useEffect, useState, useRef, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import { getMusicList, updateSong, deleteSong } from "../services/musicApi";
 import { ArrowLeft, Search, Save, X, Edit2, Play, Pause, Music as MusicIcon, Upload, Image as ImageIcon, Trash2, AlertTriangle, BarChart2, Maximize2, Minimize2 } from "lucide-react";
+import { useDebounce } from "../hooks/useDebounce";
 
 interface Music {
   id: number;
@@ -27,6 +29,7 @@ export default function Admin() {
   const [editForm, setEditForm] = useState<Partial<Music>>({});
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
+  const [newCategoryInput, setNewCategoryInput] = useState("");
 
   // Cover Update State
   const [newCoverFile, setNewCoverFile] = useState<File | null>(null);
@@ -118,15 +121,17 @@ export default function Admin() {
     return () => { mounted = false; };
   }, []);
 
+  const debouncedQuery = useDebounce(query, 300);
+
   useEffect(() => {
-    const q = query.trim().toLowerCase();
+    const q = debouncedQuery.trim().toLowerCase();
     if (!q) return setFiltered(list);
     setFiltered(list.filter(m => (
       (m.title || "").toLowerCase().includes(q) ||
       (m.artist || "").toLowerCase().includes(q) ||
       (m.category || "").toLowerCase().includes(q)
     )));
-  }, [query, list]);
+  }, [debouncedQuery, list]);
 
   // Clear status after 3 seconds
   useEffect(() => {
@@ -142,6 +147,7 @@ export default function Admin() {
     setNewCoverFile(null);
     setNewCoverPreview(null);
     setStatus(null);
+    setNewCategoryInput("");
   }
 
   function cancelEdit() {
@@ -149,16 +155,19 @@ export default function Admin() {
     setEditForm({});
     setNewCoverFile(null);
     setNewCoverPreview(null);
+    setNewCategoryInput("");
   }
 
   async function saveEdit(id: number) {
     setSaving(true);
     try {
+      const finalCategory = editForm.category === 'New' ? (newCategoryInput.trim() || 'General') : editForm.category;
+
       // Update via Supabase
       const updated = await updateSong(id, {
         title: editForm.title,
         artist: editForm.artist,
-        category: editForm.category,
+        category: finalCategory,
         lyrics: editForm.lyrics
       }, newCoverFile || undefined);
 
@@ -302,14 +311,15 @@ export default function Admin() {
       {/* Main Content */}
       <div className="relative">
         {/* Status Toast */}
-        {status && (
-          <div className={`absolute top-0 right-0 -mt-16 z-50 px-6 py-3 border backdrop-blur-md animate-bounce shadow-lg ${
+        {status && createPortal(
+          <div className={`fixed bottom-8 right-8 z-[100] px-6 py-3 border backdrop-blur-md animate-in slide-in-from-bottom-5 fade-in duration-300 shadow-lg ${
             status.type === 'success' 
-              ? 'border-green-500 bg-green-900/10 text-green-400' 
-              : 'border-red-500 bg-red-900/10 text-red-400'
+              ? 'border-green-500 bg-green-900/60 text-green-400' 
+              : 'border-red-500 bg-red-900/60 text-red-400'
           }`}>
             <span className="font-bold uppercase tracking-wider text-sm">{status.message}</span>
-          </div>
+          </div>,
+          document.body
         )}
 
         {loading ? (
@@ -426,14 +436,25 @@ export default function Admin() {
                   {/* Category */}
                   <div className="min-w-0">
                      {editingId === m.id ? (
-                      <select
-                        className="w-full bg-black/50 border border-[var(--text-secondary)] p-2 text-sm focus:border-[var(--accent)] focus:outline-none appearance-none"
-                        value={editForm.category || "General"} 
-                        onChange={e => setEditForm({ ...editForm, category: e.target.value })}
-                      >
-                         {categories.map(c => <option key={c} value={c}>{c}</option>)}
-                         <option value="New">+ New...</option>
-                      </select>
+                      <div className="flex flex-col gap-2">
+                        <select
+                          className="w-full bg-black/50 border border-[var(--text-secondary)] p-2 text-sm focus:border-[var(--accent)] focus:outline-none appearance-none"
+                          value={editForm.category || "General"} 
+                          onChange={e => setEditForm({ ...editForm, category: e.target.value })}
+                        >
+                           {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                           <option value="New">+ New...</option>
+                        </select>
+                        {editForm.category === "New" && (
+                          <input
+                            className="w-full bg-black/50 border border-[var(--accent)] p-2 text-sm focus:border-[var(--accent)] focus:outline-none translate-y-0 opacity-100 animate-in fade-in slide-in-from-top-2"
+                            placeholder="Type new category..."
+                            value={newCategoryInput}
+                            onChange={e => setNewCategoryInput(e.target.value)}
+                            autoFocus
+                          />
+                        )}
+                      </div>
                     ) : (
                       <div className="inline-block px-2 py-1 text-[10px] border border-[var(--text-secondary)] text-[var(--text-secondary)] uppercase tracking-wider">
                         {m.category || "General"}
@@ -518,7 +539,7 @@ export default function Admin() {
         )}
 
       {/* Delete Confirmation Modal */}
-      {deleteConfirmId && (
+      {deleteConfirmId && createPortal(
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in duration-300">
           <div className="bg-[#0a0a0a] border-2 border-red-500/30 w-full max-w-md p-8 shadow-[0_0_50px_rgba(239,68,68,0.15)] relative overflow-hidden">
             {/* Background pattern */}
@@ -536,7 +557,7 @@ export default function Admin() {
               <div className="h-0.5 w-16 bg-red-500 mx-auto mb-6"></div>
               
               <p className="text-gray-400 mb-8 font-mono text-sm leading-relaxed uppercase tracking-widest">
-                Warning: This track and all associated files will be <span className="text-red-500 underline decoration-red-500/30">permanently purged</span> from the mainframe.
+                Warning: The track <span className="text-white font-bold">"{list.find(m => m.id === deleteConfirmId)?.title || "Unknown Track"}"</span> and all associated files will be <span className="text-red-500 underline decoration-red-500/30">permanently purged</span> from the mainframe.
               </p>
               
               <div className="grid grid-cols-2 gap-4">
@@ -564,12 +585,13 @@ export default function Admin() {
             {/* Scanline effect */}
             <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-transparent via-white/5 to-transparent h-[2px] w-full animate-scanline opacity-20"></div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Lyrics Modal */}
-      {lyricsModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+      {lyricsModalOpen && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-[var(--bg-main)] border border-[var(--accent)] w-full max-w-2xl p-6 shadow-[0_0_50px_rgba(0,255,255,0.2)] flex flex-col h-[80vh]">
             <div className="flex justify-between items-center mb-4 border-b border-[var(--text-secondary)] pb-4">
               <h3 className="text-xl font-bold tracking-widest text-[var(--accent)]">EDIT LYRICS</h3>
@@ -588,15 +610,14 @@ export default function Admin() {
                 onClick={() => setLyricsModalOpen(false)}
                 className="px-6 py-2 bg-[var(--accent)] text-[var(--bg-main)] font-bold tracking-wider hover:opacity-90"
               >
-                DONE
+                APPLY (REMEMBER TO SAVE TRACK)
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
       
-
-            
       </div>
     </div>
   );
