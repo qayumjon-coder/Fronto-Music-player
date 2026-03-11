@@ -702,7 +702,7 @@ export function Player({ songs, loading, player, onOpenSettings, onAddToPlaylist
 
     {/* Search Modal */}
     {isSearchOpen && (
-      <div className="absolute inset-0 z-[100] bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-4 animate-in fade-in duration-300">
+      <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-4 animate-in fade-in duration-300">
         <div className="w-full max-w-lg bg-[var(--bg-main)] border border-[var(--text-secondary)] p-6 relative max-h-[80vh] flex flex-col">
           <button 
             onClick={() => setIsSearchOpen(false)}
@@ -779,7 +779,7 @@ export function Player({ songs, loading, player, onOpenSettings, onAddToPlaylist
 
     {/* Lyrics Overlay */}
     {showLyrics && (
-      <div className="absolute inset-0 z-[100] bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-8 animate-in fade-in duration-300">
+      <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-8 animate-in fade-in duration-300">
         <button 
           onClick={() => setShowLyrics(false)}
           className="absolute top-6 right-6 text-[var(--text-secondary)] hover:text-[var(--accent)] transition-colors p-2"
