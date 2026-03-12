@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect, type ReactNode } from '
 
 interface AuthContextType {
   isAuthenticated: boolean;
-  login: (password: string) => boolean;
+  login: (password: string) => { success: boolean; message: string };
   logout: () => void;
 }
 
@@ -28,19 +28,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const login = (password: string): boolean => {
+  const login = (password: string) => {
     if (!ADMIN_PASSWORD) {
         console.error("ADMIN_PASSWORD is not set in environment.");
-        return false;
+        return { success: false, message: "System Error: VITE_ADMIN_PASSWORD is not configured in .env" };
     }
     
     if (password === ADMIN_PASSWORD) {
       setIsAuthenticated(true);
       localStorage.setItem(AUTH_KEY, 'true');
       sessionStorage.setItem(AUTH_KEY, 'true');
-      return true;
+      return { success: true, message: "Access Granted" };
     }
-    return false;
+    return { success: false, message: "Access Denied: Invalid Credentials" };
   };
 
   const logout = () => {

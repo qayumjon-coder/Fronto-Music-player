@@ -2,7 +2,7 @@ import type { Song } from "../types/Song";
 import SEO from "./SEO";
 
 import { useSettings } from "../contexts/SettingsContext";
-import { Heart, Mic2, X, Upload, Search, Plus, Loader2, Check, Send } from "lucide-react";
+import { Heart, Mic2, X, Upload, Search, Plus, Loader2, Check, Send, AlertTriangle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { updateSong, searchSongs } from "../services/musicApi";
 
@@ -15,13 +15,14 @@ import { Visualizer, FadeVisualizer, useBeatScale, AmbientBackground, Concentric
 import { formatTime } from "../utils/formatTime";
 import { useState, useEffect, useRef } from "react";
 import { useDebounce } from "../hooks/useDebounce";
-
+import { useScrollLock } from "../hooks/useScrollLock";
 
 import { useSoundEffects } from "../hooks/useSoundEffects";
 
 interface PlayerProps {
   songs: Song[];
   loading: boolean;
+  error?: string | null;
   player: ReturnType<typeof useAudioPlayer>;
   onOpenSettings: () => void;
   onAddToPlaylist: (song: Song) => Promise<{ success: boolean; message: string }>;
@@ -29,7 +30,7 @@ interface PlayerProps {
   onBulkRemove: (ids: number[]) => void;
 }
 
-export function Player({ songs, loading, player, onOpenSettings, onAddToPlaylist, onRemoveFromPlaylist, onBulkRemove }: PlayerProps) {
+export function Player({ songs, loading, error, player, onOpenSettings, onAddToPlaylist, onRemoveFromPlaylist, onBulkRemove }: PlayerProps) {
   const { playClick, playHover } = useSoundEffects();
   const { visualizerMode } = useSettings(); // Get visualizer mode
   const beatScale = useBeatScale(player.playing, player.analyser); // Get beat scale
@@ -88,6 +89,9 @@ export function Player({ songs, loading, player, onOpenSettings, onAddToPlaylist
   const [isSearching, setIsSearching] = useState(false);
   const [searchMsg, setSearchMsg] = useState<{type: 'success'|'error', text: string} | null>(null);
   const [lastSearchQuery, setLastSearchQuery] = useState<string>("");
+
+  // Lock body scroll when modals are open
+  useScrollLock(isSearchOpen || showLyrics || isConfigMenuOpen);
 
   // Load last search from localStorage on mount
   useEffect(() => {
@@ -211,6 +215,33 @@ export function Player({ songs, loading, player, onOpenSettings, onAddToPlaylist
   const filteredSongs = selectedCategory === "All" ? songs : songs.filter(s => (s.category || "General") === selectedCategory);
 
   if (loading) return <div className="text-[var(--text-primary)] text-center mt-20 text-lg animate-pulse font-mono">Loading library...</div>;
+  
+  if (error) {
+    return (
+      <>
+        <AmbientBackground playing={player.playing} analyser={player.analyser} />
+        <div className="w-full min-h-screen flex flex-col items-center justify-center p-4 relative z-10">
+          <div className="flex flex-col items-center justify-center p-16 md:p-32 border border-red-500/50 bg-red-950/20 backdrop-blur-sm relative overflow-hidden group max-w-2xl text-center">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-red-500 to-transparent opacity-50"></div>
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,0,0,0.1)_0,transparent_100%)]"></div>
+            <AlertTriangle className="w-16 h-16 text-red-500 mb-6 drop-shadow-[0_0_15px_rgba(255,0,0,0.8)] animate-pulse" />
+            <h2 className="text-2xl font-black text-red-500 tracking-[0.3em] font-mono uppercase mb-4 text-glow px-4">
+              SYSTEM ERROR
+            </h2>
+            <div className="px-6 py-3 border border-red-500/30 bg-red-900/20 font-mono text-sm tracking-wider text-red-300">
+              {error}
+            </div>
+            <button 
+              onClick={() => window.location.reload()}
+              className="mt-8 px-8 py-3 bg-red-500/10 border border-red-500 text-red-500 hover:bg-red-500 hover:text-black font-bold font-mono tracking-widest text-xs uppercase transition-all shadow-[0_0_15px_rgba(255,0,0,0.2)] hover:shadow-[0_0_25px_rgba(255,0,0,0.4)]"
+            >
+              REBOOT SYSTEM
+            </button>
+          </div>
+        </div>
+      </>
+    );
+  }
   
   if (!songs.length) {
     return (

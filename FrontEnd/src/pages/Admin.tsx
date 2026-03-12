@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { getMusicList, updateSong, deleteSong } from "../services/musicApi";
 import { ArrowLeft, Search, Save, X, Edit2, Play, Pause, Music as MusicIcon, Upload, Image as ImageIcon, Trash2, AlertTriangle, BarChart2, Maximize2, Minimize2 } from "lucide-react";
 import { useDebounce } from "../hooks/useDebounce";
+import { useScrollLock } from "../hooks/useScrollLock";
 
 interface Music {
   id: number;
@@ -40,6 +41,8 @@ export default function Admin() {
   const [lyricsModalOpen, setLyricsModalOpen] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useScrollLock(!!deleteConfirmId || lyricsModalOpen);
 
   // Stats Calculations
   const stats = useMemo(() => {
@@ -360,8 +363,24 @@ export default function Admin() {
              </div>
            </div>
         ) : error ? (
-          <div className="p-8 border border-red-500 bg-red-900/10 text-red-400 text-center">
-            ERROR: {error}
+          <div className="flex flex-col items-center justify-center p-16 md:p-32 border border-red-500/50 bg-red-950/20 backdrop-blur-sm relative overflow-hidden group mt-4">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-red-500 to-transparent opacity-50"></div>
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,0,0,0.1)_0,transparent_100%)]"></div>
+            
+            <AlertTriangle className="w-16 h-16 text-red-500 mb-6 drop-shadow-[0_0_15px_rgba(255,0,0,0.8)] animate-pulse" />
+            <h2 className="text-2xl font-black text-red-500 tracking-[0.3em] font-mono uppercase mb-4 text-glow px-4 text-center">
+              SYSTEM ERROR
+            </h2>
+            <div className="px-6 py-3 border border-red-500/30 bg-red-900/20 font-mono text-sm tracking-wider text-red-300 max-w-lg text-center leading-relaxed">
+              {error}
+            </div>
+            
+            <button 
+              onClick={() => window.location.reload()}
+              className="mt-8 px-8 py-3 bg-red-500/10 border border-red-500 text-red-500 hover:bg-red-500 hover:text-black font-bold font-mono tracking-widest text-xs uppercase transition-all shadow-[0_0_15px_rgba(255,0,0,0.2)] hover:shadow-[0_0_25px_rgba(255,0,0,0.4)]"
+            >
+              REBOOT SYSTEM
+            </button>
           </div>
         ) : (
           <div className="bg-black/40 border border-[var(--text-secondary)] backdrop-blur-sm overflow-hidden">

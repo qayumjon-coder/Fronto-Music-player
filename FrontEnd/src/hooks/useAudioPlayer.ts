@@ -70,8 +70,8 @@ export function useAudioPlayer(songs: { url: string }[]) {
       audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
       audio.pause();
       audio.src = "";
-      if (audioContextRef.current?.state !== 'closed') {
-        audioContextRef.current?.close();
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+        audioContextRef.current.close().catch(console.error);
       }
     };
   }, []);

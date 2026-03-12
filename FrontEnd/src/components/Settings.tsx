@@ -1,5 +1,6 @@
 import { useSettings } from "../contexts/SettingsContext";
 import { useNavigate } from "react-router-dom";
+import { useScrollLock } from "../hooks/useScrollLock";
 
 interface SettingsProps {
   isOpen: boolean;
@@ -20,6 +21,8 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
     grid, setGrid,
     t
   } = useSettings();
+
+  useScrollLock(isOpen);
 
   if (!isOpen) return null;
 

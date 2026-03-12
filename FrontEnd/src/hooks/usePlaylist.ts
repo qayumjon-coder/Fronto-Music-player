@@ -18,7 +18,18 @@ export function usePlaylist() {
     const loadPlaylist = async () => {
         setLoading(true);
         try {
-            const storedIds = JSON.parse(localStorage.getItem(PLAYLIST_KEY) || "[]");
+            let storedIds: number[] = [];
+            try {
+                storedIds = JSON.parse(localStorage.getItem(PLAYLIST_KEY) || "[]");
+                if (!Array.isArray(storedIds)) {
+                    storedIds = [];
+                    localStorage.removeItem(PLAYLIST_KEY);
+                }
+            } catch (e) {
+                console.warn("Corrupted playlist in storage, resetting.", e);
+                localStorage.removeItem(PLAYLIST_KEY);
+                storedIds = [];
+            }
             if (storedIds.length > 0) {
                 const songs = await getSongsByIds(storedIds);
                 setPlaylist(songs);

@@ -46,11 +46,23 @@ export function Upload() {
   const [status, setStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
   
   const MAX_UPLOADS = 7;
+  const UPLOAD_KEY = '_sys_net_stat';
   const [uploadCount, setUploadCount] = useState(0);
 
   useEffect(() => {
-    const count = parseInt(localStorage.getItem('user_upload_count') || '0');
-    setUploadCount(count);
+    try {
+      const raw = localStorage.getItem(UPLOAD_KEY);
+      if (raw) {
+        const decoded = JSON.parse(atob(raw));
+        if (decoded && typeof decoded.p === 'number') {
+          setUploadCount(decoded.p);
+          return;
+        }
+      }
+    } catch (e) {
+       // Ignore decode errors
+    }
+    setUploadCount(0);
   }, []);
   const handleFileChange = async (e: ChangeEvent<HTMLInputElement>, type: "audio" | "cover") => {
     if (e.target.files && e.target.files[0]) {
@@ -241,7 +253,8 @@ export function Upload() {
       if (!isAuthenticated) {
         const newCount = uploadCount + 1;
         setUploadCount(newCount);
-        localStorage.setItem('user_upload_count', newCount.toString());
+        const encoded = btoa(JSON.stringify({ p: newCount, _ts: Date.now(), _hmac: Math.random().toString(36) }));
+        localStorage.setItem(UPLOAD_KEY, encoded);
       }
 
       setTimeout(() => navigate("/"), 1500);

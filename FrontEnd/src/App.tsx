@@ -16,7 +16,7 @@ import { useEffect } from "react";
 import { HelmetProvider } from 'react-helmet-async';
 
 function MusicApp() {
-  const { playlist, loading, addToPlaylist, removeFromPlaylist, removeMultipleFromPlaylist } = usePlaylist();
+  const { playlist, loading, error, addToPlaylist, removeFromPlaylist, removeMultipleFromPlaylist } = usePlaylist();
   const player = useAudioPlayer(playlist);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [showBoot, setShowBoot] = useState(true);
@@ -40,7 +40,8 @@ function MusicApp() {
             <Route path="/" element={
               <Player 
                 songs={playlist} 
-                loading={loading} 
+                loading={loading}
+                error={error}
                 player={player} 
                 onOpenSettings={() => setIsSettingsOpen(true)}
                 onAddToPlaylist={addToPlaylist}

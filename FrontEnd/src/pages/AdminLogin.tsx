@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Lock, AlertCircle, ArrowLeft } from 'lucide-react';
@@ -9,15 +9,19 @@ export function AdminLogin() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-
-    if (login(password)) {
+    const res = login(password);
+    if (res.success) {
       navigate('/admin');
     } else {
-      setError('Incorrect password');
-      setPassword('');
+      setError(res.message);
+      // Cyberpunk shake effect
+      const box = document.getElementById('login-box');
+      if (box) {
+        box.classList.add('animate-[shake_0.5s_ease-in-out]');
+        setTimeout(() => box.classList.remove('animate-[shake_0.5s_ease-in-out]'), 500);
+      }
     }
   };
 
@@ -27,7 +31,7 @@ export function AdminLogin() {
       <div className="scanline" />
       
       <div className="relative z-10 w-full max-w-md">
-        <div className="bg-black/40 border border-[var(--text-secondary)] p-8 backdrop-blur-sm shadow-[0_0_40px_rgba(0,255,255,0.1)]">
+        <div id="login-box" className="bg-black/40 border border-[var(--text-secondary)] p-8 backdrop-blur-sm shadow-[0_0_40px_rgba(0,255,255,0.1)]">
           {/* Header */}
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-16 h-16 mb-4 border-2 border-[var(--accent)] bg-[var(--accent)]/10">
