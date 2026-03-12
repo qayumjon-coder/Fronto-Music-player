@@ -14,6 +14,7 @@ export function Upload() {
     artist: "",
     category: "General",
     duration: 0,
+    lyrics: "",
   });
   const { songs } = useFetchSongs();
   const [isCatOpen, setIsCatOpen] = useState(false);
@@ -224,7 +225,8 @@ export function Upload() {
         formData.category,
         finalDuration,
         audioFile,
-        coverFile
+        coverFile,
+        formData.lyrics
       );
 
       // Automatically add to user's personalized playlist if there's room
@@ -434,6 +436,16 @@ export function Upload() {
                 />
               </div>
             )}
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-sm text-[var(--text-secondary)] uppercase tracking-widest">Lyrics (Optional)</label>
+            <textarea
+              value={formData.lyrics}
+              onChange={(e) => setFormData({ ...formData, lyrics: e.target.value })}
+              className="w-full h-32 bg-black/50 border border-[var(--text-secondary)] p-3 focus:outline-none focus:border-[var(--accent)] focus:shadow-[0_0_10px_var(--accent)] transition-all text-sm font-mono resize-none custom-scrollbar"
+              placeholder="Paste the song lyrics here..."
+            />
           </div>
 
           <div className="pt-4">
