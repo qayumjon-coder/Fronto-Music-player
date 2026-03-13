@@ -2,7 +2,7 @@ import type { Song } from "../types/Song";
 import SEO from "./SEO";
 
 import { useSettings } from "../contexts/SettingsContext";
-import { Heart, Mic2, X, Upload, Search, Plus, Loader2, Check, Send, AlertTriangle } from "lucide-react";
+import { Heart, Mic2, X, Upload, Search, Plus, Loader2, Check, Send, AlertTriangle, ListMusic, ChevronDown, Share2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { updateSong, searchSongs } from "../services/musicApi";
 
@@ -33,18 +33,48 @@ interface PlayerProps {
 export function Player({ songs, loading, error, player, onOpenSettings, onAddToPlaylist, onRemoveFromPlaylist, onBulkRemove }: PlayerProps) {
   const { playClick, playHover } = useSoundEffects();
   const { visualizerMode } = useSettings(); // Get visualizer mode
-  const beatScale = useBeatScale(player.playing, player.analyser); // Get beat scale
+  // Removed beatScale from state to avoid 60fps re-renders of the entire Player component
+  const coverImgRef = useRef<HTMLImageElement>(null);
+  useBeatScale(player.playing, player.analyser, coverImgRef, visualizerMode === 'scale');
+
   const [isConfigMenuOpen, setIsConfigMenuOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [showLyrics, setShowLyrics] = useState(false);
-  const [likedIds, setLikedIds] = useState<Set<number>>(new Set());
+  const [likedOverrides, setLikedOverrides] = useState<Record<number, boolean>>({});
   const [showVolumeHUD, setShowVolumeHUD] = useState(false);
   const volumeTimerRef = useRef<any>(null);
 
-  // Sync liked status from songs prop
-  useEffect(() => {
-    setLikedIds(new Set(songs.filter(s => s.liked).map(s => s.id)));
-  }, [songs]);
+  // Mobile Drawer State
+  const [isMobilePlaylistOpen, setIsMobilePlaylistOpen] = useState(false);
+
+  const current: Song = songs[player.index];
+
+  // Swipe Gestures State
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
+  const minSwipeDistance = 50;
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+  
+  const onTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+  
+  const onTouchEndEvent = () => {
+    if (!touchStart || !touchEnd) return;
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+    
+    if (isLeftSwipe) {
+      player.next(); // swipe left -> next
+    } else if (isRightSwipe) {
+      player.prev(); // swipe right -> prev
+    }
+  };
 
   // Show volume HUD when volume changes
   useEffect(() => {
@@ -56,28 +86,28 @@ export function Player({ songs, loading, error, player, onOpenSettings, onAddToP
     };
   }, [player.volume]);
 
+  const isLiked = (id: number) => {
+    if (likedOverrides[id] !== undefined) return likedOverrides[id];
+    return songs.find(s => s.id === id)?.liked || false;
+  };
+
   const toggleLike = async (e: React.MouseEvent) => {
     e.stopPropagation();
     const current = songs[player.index];
-    const newLiked = !likedIds.has(current.id);
+    if (!current) return;
+    
+    const currentlyLiked = isLiked(current.id);
+    const newLiked = !currentlyLiked;
     
     // Optimistic update
-    const newSet = new Set(likedIds);
-    if (newLiked) newSet.add(current.id);
-    else newSet.delete(current.id);
-    setLikedIds(newSet);
+    setLikedOverrides(prev => ({ ...prev, [current.id]: newLiked }));
 
     try {
       await updateSong(current.id, { liked: newLiked });
     } catch (err) {
       console.error("Failed to toggle like", err);
       // Revert if failed
-      setLikedIds(prev => {
-        const reverted = new Set(prev);
-        if (newLiked) reverted.delete(current.id);
-        else reverted.add(current.id);
-        return reverted;
-      });
+      setLikedOverrides(prev => ({ ...prev, [current.id]: currentlyLiked }));
     }
   };
 
@@ -91,7 +121,7 @@ export function Player({ songs, loading, error, player, onOpenSettings, onAddToP
   const [lastSearchQuery, setLastSearchQuery] = useState<string>("");
 
   // Lock body scroll when modals are open
-  useScrollLock(isSearchOpen || showLyrics || isConfigMenuOpen);
+  useScrollLock(isSearchOpen || showLyrics || isConfigMenuOpen || isMobilePlaylistOpen);
 
   // Load last search from localStorage on mount
   useEffect(() => {
@@ -211,8 +241,26 @@ export function Player({ songs, loading, error, player, onOpenSettings, onAddToP
       setTimeout(() => setSearchMsg(null), 2000);
   };
 
-  const categories = ["All", ...Array.from(new Set(songs.map(s => s.category || "General")))];
-  const filteredSongs = selectedCategory === "All" ? songs : songs.filter(s => (s.category || "General") === selectedCategory);
+  const [shareToast, setShareToast] = useState(false);
+
+  const copyShareLink = () => {
+    if (!current) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set('track', current.id.toString());
+    navigator.clipboard.writeText(url.toString());
+    
+    setShareToast(true);
+    setTimeout(() => setShareToast(false), 2000);
+  };
+
+  const categoriesList = Array.from(new Set(songs.map(s => s.category || "General"))).filter(c => c !== "Trending");
+  const categories = ["All", "Trending", ...categoriesList];
+  
+  const filteredSongs = selectedCategory === "All" 
+    ? songs 
+    : selectedCategory === "Trending"
+      ? [...songs].sort((a,b) => (b.play_count || 0) - (a.play_count || 0)).slice(0, 10)
+      : songs.filter(s => (s.category || "General") === selectedCategory);
 
   if (loading) return <div className="text-[var(--text-primary)] text-center mt-20 text-lg animate-pulse font-mono">Loading library...</div>;
   
@@ -362,8 +410,6 @@ export function Player({ songs, loading, error, player, onOpenSettings, onAddToP
     );
   }
 
-  const current: Song = songs[player.index];
-
   const seoTitle = current 
     ? `${player.playing ? '▶' : '⏸'} ${current.title} - ${current.artist}` 
     : 'Music Player - Fronto';
@@ -372,7 +418,7 @@ export function Player({ songs, loading, error, player, onOpenSettings, onAddToP
     : 'Experience music in a futuristic cyberpunk interface.';
 
   return (
-    <>
+    <div className="w-full flex-1 flex flex-col relative">
     <SEO 
       title={seoTitle}
       description={seoDesc}
@@ -380,6 +426,12 @@ export function Player({ songs, loading, error, player, onOpenSettings, onAddToP
     />
     {/* Global Atmospheric Background */}
     <AmbientBackground playing={player.playing} analyser={player.analyser} />
+
+    {shareToast && (
+      <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[100] bg-green-900/40 border border-green-500 text-green-400 px-6 py-2 text-xs font-mono uppercase animate-in fade-in slide-in-from-top-4">
+        Link copied to clipboard
+      </div>
+    )}
 
     {/* Settings component moved to App.tsx */}
     
@@ -463,10 +515,16 @@ export function Player({ songs, loading, error, player, onOpenSettings, onAddToP
           </div>
             
           {/* Main Content Area */}
-          <div className="flex-1 flex flex-col md:flex-row mt-6 md:mt-10 min-h-0">
+          <div className="flex-1 flex flex-col md:flex-row mt-6 md:mt-10 min-h-0 relative">
+
+            {/* Atmospheric Mobile Background - Appears behind the player only on mobile */}
+            <div className="md:hidden absolute inset-0 pointer-events-none overflow-hidden opacity-40 mix-blend-screen z-0">
+               <img src={current?.coverUrl} className="w-full h-full object-cover blur-3xl scale-125 saturate-200" alt="" />
+               <div className="absolute inset-0 bg-gradient-to-b from-[var(--bg-main)]/50 via-black/50 to-black/90" />
+            </div>
             
             {/* LEFT COLUMN: Player (Flexible) */}
-            <div className="flex-1 relative flex flex-col p-3 md:p-5 lg:p-6 border-b md:border-b-0 md:border-r border-[var(--text-secondary)]/30 overflow-hidden">
+            <div className="flex-1 relative flex flex-col p-3 md:p-5 lg:p-6 border-b md:border-b-0 md:border-r border-transparent md:border-[var(--text-secondary)]/30 overflow-hidden z-10">
               
                 {/* Fade Visualizer Overlay (Player Box Only) */}
                 {visualizerMode === 'fade' && (
@@ -487,7 +545,12 @@ export function Player({ songs, loading, error, player, onOpenSettings, onAddToP
                   <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[60%] h-[60%] bg-[var(--accent)] opacity-10 blur-[80px] rounded-full pointer-events-none" />
                   
               {/* Cover */}
-              <div className="relative group/cover">
+              <div 
+                className="relative group/cover cursor-grab active:cursor-grabbing"
+                onTouchStart={onTouchStart}
+                onTouchMove={onTouchMove}
+                onTouchEnd={onTouchEndEvent}
+              >
                 {/* Rotating Inner Glow */}
                 <div className="absolute -inset-4 bg-[var(--accent)]/10 rounded-full blur-2xl animate-pulse opacity-0 group-hover/cover:opacity-100 transition-opacity duration-700"></div>
                 
@@ -501,18 +564,16 @@ export function Player({ songs, loading, error, player, onOpenSettings, onAddToP
                   </div>
                 )}
                 
-                <div className="relative w-48 h-48 md:w-60 md:h-60 lg:w-64 lg:h-64 aspect-square border border-[var(--text-secondary)]/30 p-1 bg-black/40 backdrop-blur-sm animate-in zoom-in-95 duration-500 shrink-0">
+                <div className="relative w-56 h-56 md:w-60 md:h-60 lg:w-64 lg:h-64 aspect-square border border-[var(--text-secondary)]/30 p-1 bg-black/40 backdrop-blur-sm animate-in zoom-in-95 duration-500 shrink-0">
                   {/* Decorative corner accents for cover */}
                   <div className="absolute -top-1 -left-1 w-2 h-2 border-t border-l border-[var(--accent)]"></div>
                   <div className="absolute -bottom-1 -right-1 w-2 h-2 border-b border-r border-[var(--accent)]"></div>
                   
                   <img 
+                    ref={coverImgRef}
                     src={current.coverUrl} 
                     alt={current.title} 
                     className="w-full h-full object-cover transition-transform duration-75"
-                    style={{
-                      transform: visualizerMode === 'scale' ? `scale(${beatScale})` : 'none'
-                    }}
                   />
                 </div>
               </div>
@@ -526,9 +587,9 @@ export function Player({ songs, loading, error, player, onOpenSettings, onAddToP
                       {/* Like Button - Always visible */}
                       <button 
                         onClick={toggleLike}
-                        className={`p-3 md:p-4 rounded-full transition-all duration-300 transform hover:scale-110 active:scale-95 shrink-0 mt-1 ${likedIds.has(current.id) ? 'text-[var(--accent)] drop-shadow-[0_0_10px_var(--accent)] bg-[var(--accent)]/10' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--text-secondary)]/10'}`}
+                        className={`p-3 md:p-4 rounded-full transition-all duration-300 transform hover:scale-110 active:scale-95 shrink-0 mt-1 ${isLiked(current.id) ? 'text-[var(--accent)] drop-shadow-[0_0_10px_var(--accent)] bg-[var(--accent)]/10' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--text-secondary)]/10'}`}
                       >
-                        <Heart size={20} fill={likedIds.has(current.id) ? "currentColor" : "none"} strokeWidth={1.5} />
+                        <Heart size={20} fill={isLiked(current.id) ? "currentColor" : "none"} strokeWidth={1.5} />
                       </button>
 
                       {/* Song Title & Artist - Always visible */}
@@ -541,8 +602,8 @@ export function Player({ songs, loading, error, player, onOpenSettings, onAddToP
                           </p>
                       </div>
 
-                      {/* Lyrics Button - Visible only if lyrics exist, otherwise spacer */}
-                      {current.lyrics ? (
+                      {/* Lyrics Button - Visible only if lyrics exist */}
+                      {current.lyrics && (
                         <button
                           onClick={() => setShowLyrics(true)}
                           className="p-3 md:p-4 rounded-full text-[var(--text-secondary)] hover:text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-all duration-300 transform hover:scale-110 active:scale-95 shrink-0 mt-1"
@@ -550,9 +611,16 @@ export function Player({ songs, loading, error, player, onOpenSettings, onAddToP
                         >
                           <Mic2 size={20} strokeWidth={1.5} />
                         </button>
-                      ) : (
-                          <div className="w-[16px] shrink-0" /> // Spacer to maintain layout balance
                       )}
+
+                      {/* Share Button */}
+                      <button
+                        onClick={copyShareLink}
+                        className="p-3 md:p-4 rounded-full text-[var(--text-secondary)] hover:text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-all duration-300 transform hover:scale-110 active:scale-95 shrink-0 mt-1"
+                        title="Share Track"
+                      >
+                        <Share2 size={20} strokeWidth={1.5} />
+                      </button>
                     </div>
                   </div>
 
@@ -595,8 +663,49 @@ export function Player({ songs, loading, error, player, onOpenSettings, onAddToP
               </div>
             </div>
 
-            {/* RIGHT COLUMN: Playlist (Fixed-width) */}
-            <div className="w-full md:w-64 lg:w-80 flex flex-col bg-[var(--bg-main)]/50 border-t md:border-t-0 border-[var(--text-secondary)]/30 backdrop-blur-sm relative min-h-[280px] md:min-h-0 overflow-hidden">
+            {/* Mobile Open Playlist Button (Only visible on mobile when playlist is closed) */}
+            <div className="md:hidden flex items-center justify-center px-4 pb-4 bg-transparent z-10 w-full">
+              <button
+                onClick={() => setIsMobilePlaylistOpen(true)}
+                className="flex items-center gap-2 justify-center w-full py-3 border border-[var(--text-secondary)]/30 bg-black/50 backdrop-blur-md text-[10px] uppercase font-mono tracking-[0.2em] font-bold text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors"
+                title="Open Playlist"
+              >
+                <ListMusic size={14} /> View Tracklist
+              </button>
+            </div>
+
+            {/* RIGHT COLUMN: Playlist (Fixed-width on Desktop, BottomSheet on Mobile) */}
+            {/* Mobile Cover Overlay (Darkens background when drawer open) */}
+            {isMobilePlaylistOpen && (
+               <div 
+                 className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[40] md:hidden transition-opacity duration-300"
+                 onClick={() => setIsMobilePlaylistOpen(false)}
+               />
+            )}
+            
+            <div className={`
+              fixed inset-x-0 bottom-0 z-[50] md:relative md:z-10
+              w-full md:w-64 lg:w-80 flex flex-col 
+              bg-[var(--bg-main)]/95 md:bg-[var(--bg-main)]/50 
+              border-t md:border-t-0 border-[var(--accent)]/30 md:border-transparent
+              backdrop-blur-xl md:backdrop-blur-sm 
+              transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]
+              ${isMobilePlaylistOpen ? 'translate-y-0' : 'translate-y-full md:translate-y-0'}
+              h-[80vh] md:h-auto min-h-0 md:min-h-0 overflow-hidden
+              shadow-[0_-10px_40px_rgba(0,0,0,0.8)] md:shadow-none
+            `}>
+              
+              {/* Mobile Swipe Handle to Close */}
+              <div 
+                className="w-full flex justify-center py-3 md:hidden cursor-pointer active:bg-white/5 border-b border-[var(--text-secondary)]/10"
+                onClick={() => setIsMobilePlaylistOpen(false)}
+              >
+                <div className="flex items-center justify-center w-full">
+                  <div className="w-12 h-1 bg-[var(--text-secondary)]/40 rounded-full" />
+                   {/* Fallback chevron */}
+                  <ChevronDown className="absolute right-4 text-[var(--text-secondary)]/50" size={16} />
+                </div>
+              </div>
               {/* Playlist Header */}
               <div className="p-3 md:p-4 border-b border-[var(--text-secondary)]/30 bg-[var(--text-secondary)]/5 flex justify-between items-center">
                 <div>
@@ -828,6 +937,6 @@ export function Player({ songs, loading, error, player, onOpenSettings, onAddToP
         </div>
       </div>
     )}
-    </>
+    </div>
   );
 }

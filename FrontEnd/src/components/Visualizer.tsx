@@ -75,10 +75,8 @@ export function Visualizer({ playing, analyser }: VisualizerProps) {
         analyser.getByteTimeDomainData(dataArray);
 
         ctx.lineWidth = 2;
-        // Use CSS accent color if possible, or fallback. 
-        // We can get it from computed style or just use a default that matches 'aqua' theme for now
-        // or better: use getComputedStyle
-        const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#00FFFF';
+        // We can just use the static accent color for canvas contexts
+        const accentColor = '#00E5FF';
         ctx.strokeStyle = accentColor;
         ctx.shadowBlur = 10;
         ctx.shadowColor = accentColor;
@@ -268,9 +266,9 @@ export function Visualizer({ playing, analyser }: VisualizerProps) {
               ctx.lineTo(x, y);
           }
           
-          // Use current theme accent color for the center line
-          const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#FFFFFF';
-          ctx.strokeStyle = `rgba(255, 255, 255, 0.4)`;
+          // Use standard hex for the line
+          const accentColor = '#00E5FF';
+          ctx.strokeStyle = `rgba(0, 229, 255, 0.4)`;
           ctx.lineWidth = 1;
           ctx.shadowBlur = 5;
           ctx.shadowColor = accentColor;
@@ -429,13 +427,21 @@ export function FadeVisualizer({ playing, analyser }: VisualizerProps) {
   );
 }
 
-// Hook for retrieving a scale value based on bass frequencies
-export function useBeatScale(playing: boolean, analyser?: AnalyserNode | null) {
-  const [scale, setScale] = useState(1);
+// Hook for retrieving a scale value based on bass frequencies and applying it directly to a DOM element
+export function useBeatScale(playing: boolean, analyser?: AnalyserNode | null, targetRef?: React.RefObject<HTMLElement | null>, isActive = true) {
   const animationRef = useRef<number | null>(null);
   const currentScaleRef = useRef(1);
 
   useEffect(() => {
+    if (!isActive || !targetRef) {
+       // Reset scale if disabled
+       if (targetRef?.current) {
+          targetRef.current.style.transform = 'none';
+       }
+       if (animationRef.current) cancelAnimationFrame(animationRef.current);
+       return;
+    }
+
     const bufferLength = analyser ? analyser.frequencyBinCount : 0;
     const dataArray = new Uint8Array(bufferLength);
 
@@ -466,7 +472,10 @@ export function useBeatScale(playing: boolean, analyser?: AnalyserNode | null) {
       // Smooth transition - faster response (0.3)
       currentScaleRef.current += (targetScale - currentScaleRef.current) * 0.3;
 
-      setScale(currentScaleRef.current);
+      if (targetRef.current) {
+         targetRef.current.style.transform = `scale(${currentScaleRef.current})`;
+      }
+
       if (playing) {
           animationRef.current = requestAnimationFrame(animate);
       }
@@ -478,9 +487,7 @@ export function useBeatScale(playing: boolean, analyser?: AnalyserNode | null) {
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
-  }, [playing, analyser]);
-
-  return scale;
+  }, [playing, analyser, targetRef, isActive]);
 }
 
 export function AmbientBackground({ playing, analyser }: VisualizerProps) {
@@ -529,12 +536,11 @@ export function AmbientBackground({ playing, analyser }: VisualizerProps) {
       // Base radius 40% + up to 40% more
       const radius = maxRadius * (0.4 + (intensity * 0.4));
 
-      const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#00FFFF';
+      const accent = '#00E5FF';
 
       // Gradient
       const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
       // Inner color: accent with variable opacity
-      gradient.addColorStop(0, `${accent}${Math.floor(intensity * 80).toString(16).padStart(2, '0')}`); // hex alpha?
       // Actually closer to CSS: rgba...
       // Let's use globalAlpha for simplicity or just CSS opacity on canvas?
       // Canvas gradient color parsing is strict.
@@ -544,7 +550,6 @@ export function AmbientBackground({ playing, analyser }: VisualizerProps) {
 
       ctx.fillStyle = gradient;
       // We need valid color strings for gradient. 
-      // Assuming --accent is hex (e.g. #00FFFF).
       gradient.addColorStop(0, accent);
       gradient.addColorStop(1, 'transparent');
 
@@ -596,18 +601,12 @@ export function ConcentricWavesVisualizer({ playing, analyser }: VisualizerProps
         });
     }
 
-    let frameCount = 0;
-    let currentAccent = '#00ffff'; // Default fallback
+    let currentAccent = '#00E5FF';
 
     const animate = () => {
       if (canvas.width !== canvas.clientWidth || canvas.height !== canvas.clientHeight) {
         canvas.width = canvas.clientWidth;
         canvas.height = canvas.clientHeight;
-      }
-
-      // Occasionally sample the theme color to adapt to user changes without tanking performance
-      if (frameCount++ % 30 === 0) {
-         currentAccent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#00ffff';
       }
 
       const cx = canvas.width / 2;

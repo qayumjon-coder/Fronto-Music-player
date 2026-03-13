@@ -21,6 +21,23 @@ function MusicApp() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [showBoot, setShowBoot] = useState(true);
 
+  // Auto-play from URL ?track=ID
+  useEffect(() => {
+    if (!loading && playlist.length > 0) {
+      const params = new URLSearchParams(window.location.search);
+      const trackId = params.get('track');
+      if (trackId) {
+        const id = parseInt(trackId, 10);
+        const idx = playlist.findIndex(s => s.id === id);
+        if (idx !== -1 && player.index !== idx) {
+          player.selectSong(idx);
+          // Optional: Remove query from URL so refresh doesn't loop
+          window.history.replaceState({}, '', window.location.pathname);
+        }
+      }
+    }
+  }, [loading, playlist.length]);
+
   useEffect(() => {
     if (!loading) {
       const timer = setTimeout(() => setShowBoot(false), 2500);

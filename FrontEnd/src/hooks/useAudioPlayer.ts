@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useSettings } from "../contexts/SettingsContext";
+import { incrementPlayCount } from "../services/musicApi";
 
 export type RepeatMode = "off" | "one" | "all";
 
-export function useAudioPlayer(songs: { url: string }[]) {
+export function useAudioPlayer(songs: { url: string, id?: number }[]) {
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -20,6 +21,7 @@ export function useAudioPlayer(songs: { url: string }[]) {
   const previousVolumeRef = useRef(70);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
+  const countedSongIdRef = useRef<number | null>(null);
 
   // 1. Initialize Audio Element and Context
   useEffect(() => {
@@ -53,6 +55,12 @@ export function useAudioPlayer(songs: { url: string }[]) {
       setCurrentTime(audio.currentTime);
       const val = (audio.currentTime / audio.duration) * 100;
       setProgress(isNaN(val) ? 0 : val);
+
+      // 15 Second Tracking logic for Trends
+      if (audio.currentTime >= 15 && songs[index]?.id && countedSongIdRef.current !== songs[index].id) {
+        countedSongIdRef.current = songs[index].id as number;
+        incrementPlayCount(countedSongIdRef.current).catch(console.error);
+      }
     };
     const handleLoadedMetadata = () => {
       setDuration(audio.duration);
@@ -76,12 +84,15 @@ export function useAudioPlayer(songs: { url: string }[]) {
     };
   }, []);
 
-  // 2. Safety: Keep index in bounds
+  // 2. Safety: Keep index in bounds and Reset tracker
   useEffect(() => {
     if (songs.length > 0 && index >= songs.length) {
       setIndex(songs.length - 1);
     }
+    countedSongIdRef.current = null; // Reset tracker when song changes
   }, [songs.length, index]);
+
+  const currentTrackUrlRef = useRef<string | null>(null);
 
   // 3. Handle Source / Playback state
   useEffect(() => {
@@ -90,22 +101,38 @@ export function useAudioPlayer(songs: { url: string }[]) {
 
     const targetUrl = songs[index].url;
 
-    // Check if we need to change source
-    if (audio.src !== targetUrl) {
+    // Change source only if URL changes
+    if (currentTrackUrlRef.current !== targetUrl) {
+      currentTrackUrlRef.current = targetUrl;
+      
+      // Pause before switching source to prevent AbortError
+      if (!audio.paused) {
+        audio.pause();
+      }
+      
       audio.src = targetUrl;
       audio.load();
     }
 
+    // Handle play/pause state independently
     if (playing) {
-      const playPromise = audio.play();
-      if (playPromise !== undefined) {
-        playPromise.catch(error => {
-          console.warn("Playback prevented:", error);
-          setPlaying(false);
-        });
+      // Only attempt to play if it's currently paused
+      if (audio.paused) {
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(error => {
+            // Ignore AbortError caused by rapid track switching
+            if (error.name !== 'AbortError') {
+              console.warn("Playback prevented:", error);
+              setPlaying(false);
+            }
+          });
+        }
       }
     } else {
-      audio.pause();
+      if (!audio.paused) {
+        audio.pause();
+      }
     }
   }, [index, songs, playing]);
 

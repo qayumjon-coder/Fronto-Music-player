@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 
 interface SEOProps {
@@ -17,6 +17,10 @@ const SEO: React.FC<SEOProps> = ({
   url = window.location.href
 }) => {
   const siteTitle = title;
+
+  useEffect(() => {
+    document.title = siteTitle;
+  }, [siteTitle]);
 
   return (
     <Helmet>

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import type { Song } from "../types/Song";
 import { useSoundEffects } from "../hooks/useSoundEffects";
-import { Trash2, MoreVertical, Check, Square, CheckSquare2, X } from "lucide-react";
+import { Trash2, MoreVertical, Check, Square, CheckSquare2, X, LayoutGrid, List } from "lucide-react";
 import { ConfirmDeleteModal } from "./ConfirmDeleteModal";
 import { updateSong } from "../services/musicApi";
 
@@ -21,6 +21,7 @@ export function Playlist({ songs, currentSong, onSelectSong, onRemove, onBulkRem
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ type: 'single' | 'bulk', id?: number, title?: string } | null>(null);
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
 
   // Auto-heal missing track durations
   const [dynamicDurations, setDynamicDurations] = useState<Record<number, number>>({});
@@ -34,14 +35,17 @@ export function Playlist({ songs, currentSong, onSelectSong, onRemove, onBulkRem
         const audio = new Audio(song.url);
         audio.onloadedmetadata = () => {
           if (audio.duration && isFinite(audio.duration)) {
-             // 1. Update the UI locally for an immediate fix
              setDynamicDurations(prev => ({ ...prev, [song.id]: audio.duration }));
-             // 2. Quietly update the database so it's permanently fixed
              updateSong(song.id, { duration: audio.duration }).catch(console.error);
           }
+          // Cleanup to prevent memory leaks
+          audio.src = '';
+          audio.remove();
         };
         audio.onerror = () => {
              console.warn("Failed to load metadata for track ID:", song.id);
+             audio.src = '';
+             audio.remove();
         };
       }
     });
@@ -140,9 +144,13 @@ export function Playlist({ songs, currentSong, onSelectSong, onRemove, onBulkRem
             ) : (
                 <div className="flex items-center gap-2 pl-1 truncate">
                     <div className="w-1 h-1 bg-[var(--accent)] animate-pulse shrink-0"></div>
-                    <span className="text-[9px] text-[var(--accent)]/60 tracking-widest uppercase truncate">
+                    <span className="text-[9px] text-[var(--accent)]/60 tracking-widest uppercase truncate flex items-center gap-3">
                         {songs.length} TRACKS
                     </span>
+                    <div className="flex bg-black/50 rounded-sm border border-[var(--text-secondary)]/20 ml-2 shrink-0">
+                      <button onClick={() => { playClick(); setViewMode('list'); }} className={`p-1 rounded-sm transition-colors ${viewMode === 'list' ? 'bg-[var(--accent)] text-black' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`} title="List View"><List size={12} /></button>
+                      <button onClick={() => { playClick(); setViewMode('grid'); }} className={`p-1 rounded-sm transition-colors ${viewMode === 'grid' ? 'bg-[var(--accent)] text-black' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`} title="Grid View"><LayoutGrid size={12} /></button>
+                    </div>
                 </div>
             )}
         </div>
@@ -170,12 +178,96 @@ export function Playlist({ songs, currentSong, onSelectSong, onRemove, onBulkRem
 
       <div 
         ref={scrollContainerRef}
-        className="flex flex-col gap-0.5 overflow-y-auto custom-scrollbar flex-1 p-1 w-full"
+        className={`flex-1 p-1 w-full overflow-y-auto custom-scrollbar ${viewMode === 'grid' ? 'grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-2 px-2 pb-4 pt-2 content-start' : 'flex flex-col gap-0.5'}`}
       >
         {songs.map((song) => {
           const isActive = song.id === currentSong?.id;
           const isSelected = selectedIds.has(song.id);
           const isMenuOpen = activeMenuId === song.id;
+
+          if (viewMode === 'grid') {
+            return (
+              <div 
+                key={song.id} 
+                data-active={isActive}
+                className={`relative group/item aspect-square border transition-all duration-300 ${isActive ? 'border-[var(--accent)] shadow-[0_0_15px_rgba(0,229,255,0.4)]' : 'border-[var(--text-secondary)]/20 hover:border-[var(--accent)]/50'}`}
+              >
+                {/* Selection Checkbox */}
+                {(isSelectionMode || isSelected) && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); playClick(); toggleSelect(song.id); }}
+                    className={`absolute top-2 left-2 z-20 p-1 bg-black/60 rounded-sm backdrop-blur-sm transition-colors ${isSelected ? 'text-[var(--accent)]' : 'text-white/50 hover:text-white'}`}
+                  >
+                    {isSelected ? <CheckSquare2 size={16} /> : <Square size={16} />}
+                  </button>
+                )}
+
+                {/* More Actions Toggle */}
+                <div className="absolute right-2 top-2 z-20" ref={isMenuOpen ? menuRef : null}>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      playClick();
+                      setActiveMenuId(isMenuOpen ? null : song.id);
+                    }}
+                    className={`p-1 bg-black/60 rounded-sm backdrop-blur-sm transition-colors ${isMenuOpen ? 'text-[var(--accent)]' : 'text-white/50 hover:text-[var(--accent)] opacity-0 group-hover/item:opacity-100'}`}
+                  >
+                    <MoreVertical size={14} />
+                  </button>
+
+                  {/* Dropdown Menu */}
+                  {isMenuOpen && (
+                    <div className="absolute right-0 top-full mt-1 w-32 bg-[var(--bg-main)] border border-[var(--text-secondary)]/30 z-50 shadow-2xl animate-in fade-in zoom-in-95 duration-200 backdrop-blur-xl">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); toggleSelect(song.id); }}
+                        className="w-full flex items-center gap-3 px-3 py-2 text-[10px] font-mono uppercase tracking-wider text-[var(--text-secondary)] hover:text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors border-b border-[var(--text-secondary)]/10"
+                      >
+                        <Check size={12} />
+                        <span>{isSelected ? 'Unselect' : 'Select'}</span>
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          playClick();
+                          handleSingleDelete(song.id, song.title);
+                        }}
+                        className="w-full flex items-center gap-3 px-3 py-2 text-[10px] font-mono uppercase tracking-wider text-[var(--danger)] hover:bg-[var(--danger)]/10 transition-colors"
+                      >
+                        <Trash2 size={12} />
+                        <span>Delete</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  onClick={() => { 
+                    if (isSelectionMode) {
+                      toggleSelect(song.id);
+                    } else {
+                      playClick(); onSelectSong(song); 
+                    }
+                  }}
+                  onMouseEnter={playHover}
+                  className="w-full h-full relative block overflow-hidden"
+                >
+                  <img 
+                    src={song.coverUrl} 
+                    className={`w-full h-full object-cover transition-transform duration-500 ${isActive ? 'scale-110 brightness-50 blur-[2px]' : 'group-hover/item:scale-110 group-hover/item:brightness-50 group-hover/item:blur-[2px]'}`} 
+                    alt={song.title}
+                  />
+                  <div className={`absolute inset-0 flex flex-col items-center justify-center p-3 bg-black/40 transition-opacity duration-300 ${isActive ? 'opacity-100' : 'opacity-0 group-hover/item:opacity-100'}`}>
+                    <div className={`text-[11px] font-bold text-center truncate w-full tracking-wider uppercase ${isActive ? 'text-[var(--accent)] drop-shadow-[0_0_8px_var(--accent)]' : 'text-white'}`}>
+                      {song.title}
+                    </div>
+                    <div className="text-[9px] text-center truncate w-full mt-1.5 text-white/70 uppercase">
+                      {song.artist}
+                    </div>
+                  </div>
+                </button>
+              </div>
+            );
+          }
 
           return (
             <div 

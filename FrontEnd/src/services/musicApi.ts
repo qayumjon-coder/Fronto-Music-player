@@ -293,3 +293,17 @@ export async function deleteSong(id: number): Promise<void> {
     console.warn('Failed to delete files from storage:', error);
   }
 }
+
+/**
+ * Increment the play count for a given song
+ */
+export async function incrementPlayCount(id: number): Promise<void> {
+  try {
+    const { error } = await supabase.rpc('increment_play_count', { row_id: id });
+    if (error) {
+       console.error('Failed to increment play count via RPC:', error);
+    }
+  } catch (error) {
+    console.error('Failed to increment play count:', error);
+  }
+}

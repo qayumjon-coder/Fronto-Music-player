@@ -9,5 +9,6 @@ export interface Song {
   category: string;
   liked?: boolean;
   lyrics?: string;
+  play_count?: number;
   created_at?: string;
 }
