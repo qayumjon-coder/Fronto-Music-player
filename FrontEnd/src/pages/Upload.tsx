@@ -8,10 +8,6 @@ import { parseBlob } from "music-metadata";
 
 // ─── oEmbed helpers ───────────────────────────────────────────────────────────
 
-function extractSpotifyId(url: string): string | null {
-  const m = url.match(/spotify\.com\/track\/([A-Za-z0-9]+)/);
-  return m ? m[1] : null;
-}
 
 function isSpotifyUrl(url: string) {
   return url.includes("spotify.com/track/");
