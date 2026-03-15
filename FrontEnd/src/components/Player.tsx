@@ -4,10 +4,11 @@ import SEO from "./SEO";
 import { useSettings } from "../contexts/SettingsContext";
 import { Heart, Mic2, X, Upload, Search, Plus, Loader2, Check, Send, AlertTriangle, ListMusic, ChevronDown, Share2 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { updateSong, searchSongs } from "../services/musicApi";
+import { searchSongs, getTrendingSongs } from "../services/musicApi";
 
 import { useAudioPlayer } from "../hooks/useAudioPlayer";
 import { Playlist } from "./Playlist";
+import { SkeletonPlaylist } from "./SkeletonPlaylist";
 import { ProgressBar } from "./ProgressBar";
 import { PlaybackControls } from "./PlaybackControls";
 import { VolumeControl } from "./VolumeControl";
@@ -43,9 +44,21 @@ export function Player({ songs, loading, error, player, onOpenSettings, onAddToP
   const [isConfigMenuOpen, setIsConfigMenuOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [showLyrics, setShowLyrics] = useState(false);
-  const [likedOverrides, setLikedOverrides] = useState<Record<number, boolean>>({});
+  // Likes stored in localStorage — instant, no network, no auth needed
+  const [likedIds, setLikedIds] = useState<Set<number>>(() => {
+    try {
+      const stored = localStorage.getItem('fronto_liked_ids');
+      return new Set(stored ? JSON.parse(stored) : []);
+    } catch { return new Set(); }
+  });
   const [showVolumeHUD, setShowVolumeHUD] = useState(false);
   const volumeTimerRef = useRef<any>(null);
+  // Trending songs from full DB
+  const [trendingSongs, setTrendingSongs] = useState<Song[]>([]);
+
+  useEffect(() => {
+    getTrendingSongs(10).then(setTrendingSongs).catch(console.error);
+  }, []);
 
   // Mobile Drawer State
   const [isMobilePlaylistOpen, setIsMobilePlaylistOpen] = useState(false);
@@ -89,29 +102,24 @@ export function Player({ songs, loading, error, player, onOpenSettings, onAddToP
     };
   }, [player.volume]);
 
-  const isLiked = (id: number) => {
-    if (likedOverrides[id] !== undefined) return likedOverrides[id];
-    return songs.find(s => s.id === id)?.liked || false;
-  };
+  const isLiked = (id: number) => likedIds.has(id);
 
-  const toggleLike = async (e: React.MouseEvent) => {
+  const toggleLike = (e: React.MouseEvent) => {
     e.stopPropagation();
     const current = songs[player.index];
     if (!current) return;
-    
-    const currentlyLiked = isLiked(current.id);
-    const newLiked = !currentlyLiked;
-    
-    // Optimistic update
-    setLikedOverrides(prev => ({ ...prev, [current.id]: newLiked }));
 
-    try {
-      await updateSong(current.id, { liked: newLiked });
-    } catch (err) {
-      console.error("Failed to toggle like", err);
-      // Revert if failed
-      setLikedOverrides(prev => ({ ...prev, [current.id]: currentlyLiked }));
-    }
+    setLikedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(current.id)) {
+        next.delete(current.id);
+      } else {
+        next.add(current.id);
+      }
+      // Persist to localStorage
+      localStorage.setItem('fronto_liked_ids', JSON.stringify([...next]));
+      return next;
+    });
   };
 
   // Search Logic with History
@@ -257,15 +265,47 @@ export function Player({ songs, loading, error, player, onOpenSettings, onAddToP
   };
 
   const categoriesList = Array.from(new Set(songs.map(s => s.category || "General"))).filter(c => c !== "Trending");
-  const categories = ["All", "Trending", ...categoriesList];
-  
-  const filteredSongs = selectedCategory === "All" 
-    ? songs 
-    : selectedCategory === "Trending"
-      ? [...songs].sort((a,b) => (b.play_count || 0) - (a.play_count || 0)).slice(0, 10)
-      : songs.filter(s => (s.category || "General") === selectedCategory);
+  const likedCount = songs.filter(s => likedIds.has(s.id)).length;
+  const categories = [
+    "All",
+    "Trending",
+    ...(likedCount > 0 ? ["Liked ♥"] : []),
+    ...categoriesList,
+  ];
 
-  if (loading) return <div className="text-[var(--text-primary)] text-center mt-20 text-lg animate-pulse font-mono">Loading library...</div>;
+  const filteredSongs =
+    selectedCategory === "All"      ? songs :
+    selectedCategory === "Trending" ? trendingSongs :
+    selectedCategory === "Liked ♥" ? songs.filter(s => likedIds.has(s.id)) :
+    songs.filter(s => (s.category || "General") === selectedCategory);
+
+  if (loading) {
+    return (
+      <>
+        <AmbientBackground playing={false} analyser={null} />
+        <div className="w-full max-w-6xl mx-auto px-3 md:px-6 py-3 md:py-8">
+          <div className="relative w-full flex flex-col md:flex-row overflow-hidden min-h-[500px] border border-[var(--text-secondary)] bg-[var(--bg-main)] shadow-[0_0_40px_rgba(0,255,255,0.05)]">
+            {/* Left: big cover shimmer */}
+            <div className="flex-1 flex flex-col items-center justify-center p-8 gap-6 border-r border-[var(--text-secondary)]/20">
+              <div className="w-56 h-56 md:w-60 md:h-60 bg-[var(--text-secondary)]/8 animate-pulse" />
+              <div className="w-full max-w-xs space-y-3">
+                <div className="h-4 bg-[var(--text-secondary)]/10 animate-pulse rounded-sm w-4/5 mx-auto" />
+                <div className="h-2.5 bg-[var(--text-secondary)]/6 animate-pulse rounded-sm w-3/5 mx-auto" />
+                <div className="h-1 bg-[var(--text-secondary)]/8 animate-pulse rounded-sm w-full mt-4" />
+                <div className="flex justify-center gap-4 pt-2">
+                  {[1,2,3,4,5].map(i => <div key={i} className="w-8 h-8 rounded-full bg-[var(--text-secondary)]/8 animate-pulse" />)}
+                </div>
+              </div>
+            </div>
+            {/* Right: playlist shimmer */}
+            <div className="w-full md:w-64 lg:w-80">
+              <SkeletonPlaylist count={10} />
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
   
   if (error) {
     return (
@@ -799,7 +839,7 @@ export function Player({ songs, loading, error, player, onOpenSettings, onAddToP
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--accent)] opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[var(--accent)] shadow-[0_0_8px_var(--accent)]"></span>
                   </span>
-                  <span className="font-bold">Uploads Open</span>
+                  <span className="font-bold">Admin Curated</span>
                 </div>
 
                 <h2 className="text-3xl md:text-5xl font-bold tracking-tighter mb-6 text-white uppercase leading-tight">
@@ -807,7 +847,7 @@ export function Player({ songs, loading, error, player, onOpenSettings, onAddToP
                 </h2>
 
                 <p className="text-[var(--text-secondary)] font-mono text-xs md:text-sm leading-relaxed uppercase tracking-[0.2em] max-w-2xl mx-auto lg:mx-0">
-                  Join our neural network. Share your frequency with the world. Uploads are now open to all units (Max 5MB).
+                  Curated tracks, live on the mainframe. New frequencies added regularly by our admin unit.
                 </p>
               </div>
               

@@ -311,3 +311,25 @@ export async function incrementPlayCount(id: number): Promise<void> {
     console.error('Failed to increment play count:', error);
   }
 }
+
+/**
+ * Fetch top 10 most-played songs across the entire database
+ */
+export async function getTrendingSongs(limit = 10): Promise<Song[]> {
+  const { data, error } = await supabase
+    .from(DB_TABLES.SONGS)
+    .select('*')
+    .order('play_count', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error('Error fetching trending songs:', error);
+    return [];
+  }
+
+  return data.map((song: any) => ({
+    ...song,
+    coverUrl: song.cover_url,
+  }));
+}
+
