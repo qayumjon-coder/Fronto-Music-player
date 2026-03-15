@@ -28,9 +28,12 @@ interface PlayerProps {
   onAddToPlaylist: (song: Song) => Promise<{ success: boolean; message: string }>;
   onRemoveFromPlaylist: (id: number) => void;
   onBulkRemove: (ids: number[]) => void;
+  loadingMore?: boolean;
+  hasMore?: boolean;
+  onLoadMore?: () => void;
 }
 
-export function Player({ songs, loading, error, player, onOpenSettings, onAddToPlaylist, onRemoveFromPlaylist, onBulkRemove }: PlayerProps) {
+export function Player({ songs, loading, error, player, onOpenSettings, onAddToPlaylist, onRemoveFromPlaylist, onBulkRemove, loadingMore, hasMore, onLoadMore }: PlayerProps) {
   const { playClick, playHover } = useSoundEffects();
   const { visualizerMode } = useSettings(); // Get visualizer mode
   // Removed beatScale from state to avoid 60fps re-renders of the entire Player component
@@ -433,6 +436,13 @@ export function Player({ songs, loading, error, player, onOpenSettings, onAddToP
       </div>
     )}
 
+    {player.audioError && (
+      <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[100] bg-red-900/40 border border-red-500 text-red-400 px-6 py-2 text-xs font-mono uppercase animate-in fade-in slide-in-from-top-4 flex items-center gap-2">
+        <AlertTriangle size={14} />
+        {player.audioError}
+      </div>
+    )}
+
     {/* Settings component moved to App.tsx */}
     
     {/* Responsive Page Wrapper */}
@@ -752,6 +762,19 @@ export function Player({ songs, loading, error, player, onOpenSettings, onAddToP
                   onRemove={onRemoveFromPlaylist}
                   onBulkRemove={onBulkRemove}
                 />
+                {/* Load More */}
+                {hasMore && onLoadMore && (
+                  <div className="p-3 flex justify-center">
+                    <button
+                      onClick={onLoadMore}
+                      disabled={loadingMore}
+                      className="text-[9px] font-mono uppercase tracking-widest border border-[var(--text-secondary)]/30 px-4 py-2 text-[var(--text-secondary)] hover:text-[var(--accent)] hover:border-[var(--accent)]/50 transition-all disabled:opacity-40 flex items-center gap-2"
+                    >
+                      {loadingMore ? <Loader2 size={10} className="animate-spin" /> : null}
+                      {loadingMore ? 'Loading...' : 'Load More'}
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>

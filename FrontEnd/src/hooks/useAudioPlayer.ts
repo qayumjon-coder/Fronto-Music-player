@@ -14,6 +14,7 @@ export function useAudioPlayer(songs: { url: string, id?: number }[]) {
   const [duration, setDuration] = useState(0);
   const [shuffle, setShuffle] = useState(false);
   const [repeat, setRepeat] = useState<RepeatMode>("off");
+  const [audioError, setAudioError] = useState<string | null>(null);
 
   const { autoplay } = useSettings();
 
@@ -49,8 +50,12 @@ export function useAudioPlayer(songs: { url: string, id?: number }[]) {
 
     setupContext();
 
-    const handlePlay = () => setPlaying(true);
+    const handlePlay = () => { setPlaying(true); setAudioError(null); };
     const handlePause = () => setPlaying(false);
+    const handleError = () => {
+      setPlaying(false);
+      setAudioError('Audio playback failed. The file may be corrupted or unsupported.');
+    };
     const handleTimeUpdate = () => {
       setCurrentTime(audio.currentTime);
       const val = (audio.currentTime / audio.duration) * 100;
@@ -68,12 +73,14 @@ export function useAudioPlayer(songs: { url: string, id?: number }[]) {
 
     audio.addEventListener('play', handlePlay);
     audio.addEventListener('pause', handlePause);
+    audio.addEventListener('error', handleError);
     audio.addEventListener('timeupdate', handleTimeUpdate);
     audio.addEventListener('loadedmetadata', handleLoadedMetadata);
 
     return () => {
       audio.removeEventListener('play', handlePlay);
       audio.removeEventListener('pause', handlePause);
+      audio.removeEventListener('error', handleError);
       audio.removeEventListener('timeupdate', handleTimeUpdate);
       audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
       audio.pause();
@@ -215,10 +222,10 @@ export function useAudioPlayer(songs: { url: string, id?: number }[]) {
 
   return {
     index, playing, progress, volume, isMuted, currentTime, duration,
-    shuffle, repeat, play, pause, next, prev, setVolume, toggleMute,
+    shuffle, repeat, audioError, play, pause, next, prev, setVolume, toggleMute,
     seek, toggleShuffle: () => setShuffle(!shuffle),
     toggleRepeat: () => setRepeat(r => r === "off" ? "all" : r === "all" ? "one" : "off"),
-    selectSong: (i: number) => { setIndex(i); setPlaying(true); },
+    selectSong: (i: number) => { setIndex(i); setPlaying(true); setAudioError(null); },
     analyser: analyserRef.current
   };
 }

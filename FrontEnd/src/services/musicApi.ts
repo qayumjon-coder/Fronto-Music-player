@@ -1,16 +1,20 @@
 import { supabase, type Song } from '../lib/supabase';
 import { DB_TABLES, STORAGE_BUCKETS } from '../utils/constants';
 
+const PAGE_SIZE = 30;
+
 /**
- * Fetch all songs from Supabase database
+ * Fetch songs with pagination
  */
-// Fetch all songs
-export async function getMusicList(): Promise<Song[]> {
+export async function getMusicList(page = 0, pageSize = PAGE_SIZE): Promise<Song[]> {
+  const from = page * pageSize;
+  const to = from + pageSize - 1;
+
   const { data, error } = await supabase
     .from(DB_TABLES.SONGS)
     .select('*')
     .order('created_at', { ascending: false })
-    .limit(50); // Pagination/Limit fix to avoid overloading the client
+    .range(from, to);
 
   if (error) {
     console.error('Error fetching songs:', error);

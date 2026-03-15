@@ -3,7 +3,6 @@ import { getSongsByIds } from "../services/musicApi";
 import type { Song } from "../types/Song";
 
 const PLAYLIST_KEY = "my_playlist_ids";
-const MAX_PLAYLIST_SIZE = 7;
 
 export function usePlaylist() {
     const [playlist, setPlaylist] = useState<Song[]>([]);
@@ -45,10 +44,6 @@ export function usePlaylist() {
     };
 
     const addToPlaylist = async (song: Song) => {
-        if (playlist.length >= MAX_PLAYLIST_SIZE) {
-            return { success: false, message: `Playlist limit reach! (Max ${MAX_PLAYLIST_SIZE} songs)` };
-        }
-
         if (playlist.some(s => s.id === song.id)) {
             return { success: false, message: "Song already in playlist" };
         }

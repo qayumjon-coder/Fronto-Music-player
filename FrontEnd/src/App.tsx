@@ -5,6 +5,7 @@ import { Settings } from "./components/Settings";
 import { Upload } from "./pages/Upload";
 import { AdminLogin } from "./pages/AdminLogin";
 import Admin from "./pages/Admin";
+import { NotFound } from "./pages/NotFound";
 import { usePlaylist } from "./hooks/usePlaylist";
 import { useAudioPlayer } from "./hooks/useAudioPlayer";
 import { SettingsProvider } from "./contexts/SettingsContext";
@@ -69,6 +70,7 @@ function MusicApp() {
             <Route path="/admin/login" element={<AdminLogin />} />
             <Route path="/upload" element={<ProtectedRoute><Upload /></ProtectedRoute>} />
             <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </div>
       </Router>
