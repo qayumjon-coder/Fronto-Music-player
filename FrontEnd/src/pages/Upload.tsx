@@ -1,14 +1,81 @@
 import { useState, useEffect, useRef, type ChangeEvent, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useFetchSongs } from "../hooks/useFetchSongs";
-import { ArrowLeft, Music, Image as ImageIcon, CheckCircle, AlertCircle, LogOut, Sparkles } from "lucide-react";
+import { ArrowLeft, Music, Image as ImageIcon, CheckCircle, AlertCircle, LogOut, Sparkles, Link2, Loader2, X } from "lucide-react";
 import { uploadSong } from "../services/musicApi";
 import { useAuth } from "../contexts/AuthContext";
 import { parseBlob } from "music-metadata";
 
+// ─── oEmbed helpers ───────────────────────────────────────────────────────────
+
+function extractSpotifyId(url: string): string | null {
+  const m = url.match(/spotify\.com\/track\/([A-Za-z0-9]+)/);
+  return m ? m[1] : null;
+}
+
+function isSpotifyUrl(url: string) {
+  return url.includes("spotify.com/track/");
+}
+
+function isSoundCloudUrl(url: string) {
+  return url.includes("soundcloud.com/");
+}
+
+async function fetchSpotifyOembed(url: string) {
+  const endpoint = `https://open.spotify.com/oembed?url=${encodeURIComponent(url)}`;
+  const res = await fetch(endpoint);
+  if (!res.ok) throw new Error("Spotify oEmbed failed");
+  // author_name contains the artist name(s) in Spotify oEmbed
+  return res.json() as Promise<{ title: string; thumbnail_url: string; author_name?: string; provider_name: string }>;
+}
+
+async function fetchSoundCloudOembed(url: string) {
+  const endpoint = `https://soundcloud.com/oembed?url=${encodeURIComponent(url)}&format=json`;
+  const res = await fetch(endpoint);
+  if (!res.ok) throw new Error("SoundCloud oEmbed failed");
+  return res.json() as Promise<{ title: string; thumbnail_url: string; author_name: string }>;
+}
+
+/** MusicBrainz API — janr uchun. Bepul, API kalit shart emas. */
+async function fetchGenreFromMusicBrainz(title: string, artist: string): Promise<string | null> {
+  try {
+    const query = encodeURIComponent(`recording:"${title}" AND artist:"${artist}"`);
+    const url = `https://musicbrainz.org/ws/2/recording?query=${query}&limit=1&fmt=json`;
+    const res = await fetch(url, { headers: { 'User-Agent': 'FrontoPlayer/1.0 (https://github.com/qayumjon-coder)' } });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const recording = data?.recordings?.[0];
+    // Try tags on recording, then on releases
+    const tags: { name: string; count: number }[] =
+      recording?.tags ??
+      recording?.releases?.[0]?.['release-group']?.tags ??
+      [];
+    if (tags.length > 0) {
+      // Return the highest-count tag, capitalised
+      const top = [...tags].sort((a, b) => b.count - a.count)[0];
+      return top.name.charAt(0).toUpperCase() + top.name.slice(1);
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/** Download a remote image URL and return it as a File (so it can be uploaded to Supabase) */
+async function urlToFile(imageUrl: string, filename: string): Promise<File> {
+  // Use a CORS proxy for cross-origin images
+  const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(imageUrl)}`;
+  const res = await fetch(proxyUrl);
+  if (!res.ok) throw new Error("Image fetch failed");
+  const blob = await res.blob();
+  return new File([blob], filename, { type: blob.type || "image/jpeg" });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export function Upload() {
   const navigate = useNavigate();
-  const { logout, isAuthenticated } = useAuth();
+  const { logout } = useAuth();
   const [formData, setFormData] = useState({
     title: "",
     artist: "",
@@ -45,26 +112,84 @@ export function Upload() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
-  
-  const MAX_UPLOADS = 7;
-  const UPLOAD_KEY = '_sys_net_stat';
-  const [uploadCount, setUploadCount] = useState(0);
 
-  useEffect(() => {
+  // ── Import State ────────────────────────────────────────────────────────────
+  const [importUrl, setImportUrl] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+
+  const handleImport = async () => {
+    const url = importUrl.trim();
+    if (!url) return;
+    setImporting(true);
+    setImportError(null);
+
     try {
-      const raw = localStorage.getItem(UPLOAD_KEY);
-      if (raw) {
-        const decoded = JSON.parse(atob(raw));
-        if (decoded && typeof decoded.p === 'number') {
-          setUploadCount(decoded.p);
-          return;
+      let title = "";
+      let artist = "";
+      let thumbnailUrl = "";
+
+      if (isSpotifyUrl(url)) {
+        const data = await fetchSpotifyOembed(url);
+        // author_name from Spotify oEmbed is the artist (e.g. "The Weeknd")
+        artist = data.author_name?.trim() || "";
+        // Remove trailing " - Single", " - EP", " - Album" from title
+        title = data.title.replace(/\s*[-–]\s*(Single|EP|Album|Deluxe.*|Remaster.*)$/i, "").trim();
+        thumbnailUrl = data.thumbnail_url;
+
+      } else if (isSoundCloudUrl(url)) {
+        const data = await fetchSoundCloudOembed(url);
+        // author_name is always the correct artist on SoundCloud
+        artist = data.author_name.trim();
+        // If title contains "Artist - Track", strip the duplicate artist prefix
+        const parts = data.title.split(" - ");
+        if (parts.length >= 2 && parts[0].trim().toLowerCase() === artist.toLowerCase()) {
+          title = parts.slice(1).join(" - ").trim();
+        } else {
+          title = data.title.trim();
         }
+        thumbnailUrl = data.thumbnail_url;
+
+      } else {
+        throw new Error("Iltimos, Spotify yoki SoundCloud havolasini kiriting.");
       }
-    } catch (e) {
-       // Ignore decode errors
+
+      // Fetch thumbnail and convert to File
+      let fetchedCoverFile: File | null = null;
+      try {
+        fetchedCoverFile = await urlToFile(thumbnailUrl, "imported_cover.jpg");
+        setCoverFile(fetchedCoverFile);
+        setPreviewUrl(URL.createObjectURL(fetchedCoverFile));
+      } catch {
+        setPreviewUrl(thumbnailUrl);
+      }
+
+      // Genre lookup via MusicBrainz (runs in parallel, non-blocking)
+      let genre: string | null = null;
+      if (title && artist) {
+        genre = await fetchGenreFromMusicBrainz(title, artist);
+      }
+
+      setFormData(prev => ({
+        ...prev,
+        title: title || prev.title,
+        artist: artist || prev.artist,
+        category: genre || prev.category,
+      }));
+
+      const genreMsg = genre ? ` Janr: ${genre}.` : "";
+      setImportUrl("");
+      setStatus({ type: "success", message: `✨ Ma'lumotlar import qilindi!${genreMsg}` });
+      setTimeout(() => setStatus(null), 4000);
+
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : "Import muvaffaqiyatsiz bo'ldi.");
+    } finally {
+      setImporting(false);
     }
-    setUploadCount(0);
-  }, []);
+  };
+
+  // ── File handlers ───────────────────────────────────────────────────────────
   const handleFileChange = async (e: ChangeEvent<HTMLInputElement>, type: "audio" | "cover") => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
@@ -77,11 +202,9 @@ export function Upload() {
         }
         setAudioFile(file);
         
-        // AI Simulation: Metadata Extraction
         setStatus({ type: "success", message: "✨ AI is analyzing song details..." });
         
         try {
-          // Race between parser and a 3-second timeout
           const metadataPromise = parseBlob(file);
           const timeoutPromise = new Promise<never>((_, reject) => 
             setTimeout(() => reject(new Error("Analysis timed out")), 3000)
@@ -93,13 +216,11 @@ export function Upload() {
           const { duration } = metadata.format;
           const picture = metadata.common.picture?.[0];
 
-          // 1. Filename Fallback Logic
           if (!title || !artist) {
-            const filename = file.name.replace(/\.[^/.]+$/, ""); // Remove extension
-            const parts = filename.split(/-|–/).map(s => s.trim()); // Split by hyphen
+            const filename = file.name.replace(/\.[^/.]+$/, "");
+            const parts = filename.split(/-|–/).map(s => s.trim());
             
             if (parts.length >= 2) {
-              // Assume "Artist - Title"
               if (!artist) artist = parts[0];
               if (!title) title = parts.slice(1).join(" ");
             } else {
@@ -107,7 +228,6 @@ export function Upload() {
             }
           }
 
-          // 2. Cover Art Extraction
           if (picture) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const blob = new Blob([picture.data as any], { type: picture.format });
@@ -117,7 +237,6 @@ export function Upload() {
             setPreviewUrl(URL.createObjectURL(blob));
           }
 
-          // 3. Update Form
           setFormData(prev => ({
             ...prev,
             title: title || prev.title,
@@ -126,14 +245,12 @@ export function Upload() {
             duration: duration || prev.duration
           }));
 
-          // Success feedback
           setStatus({ type: "success", message: "✨ AI successfully auto-filled details!" });
           setTimeout(() => setStatus(null), 3000);
 
         } catch (error) {
           console.error("Metadata parsing failed:", error);
           
-          // Fallback to filename logic even if metadata fails
           let fallbackTitle = "";
           let fallbackArtist = "";
           
@@ -146,9 +263,7 @@ export function Upload() {
              fallbackTitle = filename;
           }
 
-          // Get duration via Audio as fallback
           const audio = new Audio(URL.createObjectURL(file));
-          // Wrap in a promise to wait for metadata
           await new Promise<void>((resolve) => {
               audio.onloadedmetadata = () => {
                 setFormData(prev => ({ 
@@ -174,7 +289,6 @@ export function Upload() {
             message: `AI Analysis Skipped: ${error instanceof Error ? error.message : "Unavailable"}. Using filename.` 
           });
           
-          // Clear error after 3s
           setTimeout(() => setStatus(null), 3000);
         }
 
@@ -187,11 +301,11 @@ export function Upload() {
         setPreviewUrl(URL.createObjectURL(file));
       }
       
-      // Clear "too big" error if generic
       if (status?.message.includes("too big")) setStatus(null);
     }
   };
 
+  // ── Submit ──────────────────────────────────────────────────────────────────
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!audioFile || !coverFile || !formData.title || !formData.artist) {
@@ -199,16 +313,9 @@ export function Upload() {
       return;
     }
 
-    // Check limit
-    if (!isAuthenticated && uploadCount >= MAX_UPLOADS) {
-      setStatus({ type: "error", message: `Daily upload limit reached! (${MAX_UPLOADS}/${MAX_UPLOADS})` });
-      return;
-    }
-
     setLoading(true);
     setStatus(null);
 
-    // If duration is still 0, try to get it one last time before uploading
     let finalDuration = formData.duration;
     if (!finalDuration && audioFile) {
         finalDuration = await new Promise((resolve) => {
@@ -219,7 +326,7 @@ export function Upload() {
     }
 
     try {
-      const newSong = await uploadSong(
+      await uploadSong(
         formData.title,
         formData.artist,
         formData.category,
@@ -229,36 +336,7 @@ export function Upload() {
         formData.lyrics
       );
 
-      // Automatically add to user's personalized playlist if there's room
-      const storedIdsStr = localStorage.getItem('my_playlist_ids');
-      try {
-        let storedIds: number[] = [];
-        if (storedIdsStr) {
-           storedIds = JSON.parse(storedIdsStr);
-           if (!Array.isArray(storedIds)) storedIds = [];
-        }
-        
-        if (storedIds.length < 7 && !storedIds.includes(newSong.id)) {
-          storedIds.push(newSong.id);
-          localStorage.setItem('my_playlist_ids', JSON.stringify(storedIds));
-        }
-      } catch (e) {
-        console.error("Failed to update local playlist. Resetting array.", e);
-        // Only start a new array here if it completely fails to parse, 
-        // avoiding clearing a good valid string that was just slightly malformed.
-        localStorage.setItem('my_playlist_ids', JSON.stringify([newSong.id]));
-      }
-
-      setStatus({ type: "success", message: "Song uploaded successfully! Adding to your playlist..." });
-      
-      // Increment local count if not admin
-      if (!isAuthenticated) {
-        const newCount = uploadCount + 1;
-        setUploadCount(newCount);
-        const encoded = btoa(JSON.stringify({ p: newCount, _ts: Date.now(), _hmac: Math.random().toString(36) }));
-        localStorage.setItem(UPLOAD_KEY, encoded);
-      }
-
+      setStatus({ type: "success", message: "Track uploaded successfully!" });
       setTimeout(() => navigate("/"), 1500);
     } catch (err) {
       console.error('Upload error:', err);
@@ -270,13 +348,11 @@ export function Upload() {
 
   return (
     <div className="w-full max-w-4xl mx-auto p-6 md:p-12 relative z-10 flex flex-col gap-8 text-[var(--text-primary)] font-mono">
-      {/* Header with enhanced styling */}
+      {/* Header */}
       <div className="relative border border-[var(--text-secondary)] bg-black/60 backdrop-blur-sm">
-        {/* Decorative top border */}
         <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[var(--accent)] to-transparent opacity-50"></div>
         
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6">
-          {/* Title Section */}
           <div className="flex items-center gap-3">
             <div className="w-1 h-12 bg-[var(--accent)] shadow-[0_0_10px_var(--accent)]"></div>
             <div>
@@ -284,54 +360,42 @@ export function Upload() {
                 Upload Zone
               </h1>
               <p className="text-xs text-[var(--text-secondary)] tracking-widest mt-1">
-                COMMUNITY UPLOAD SYSTEM
-                {!isAuthenticated && (
-                  <span className={`ml-3 px-2 py-0.5 border ${uploadCount >= MAX_UPLOADS ? 'border-red-500 text-red-500' : 'border-[var(--accent)] text-[var(--accent)]'}`}>
-                    LIMIT: {uploadCount}/{MAX_UPLOADS}
-                  </span>
-                )}
+                ADMIN UPLOAD SYSTEM
               </p>
             </div>
           </div>
 
-          {/* Action Buttons */}
           <div className="flex flex-wrap items-center gap-3">
-            {/* Manage Database Button - Admin Only */}
-            {isAuthenticated && (
-              <>
-                <Link 
-                  to="/admin" 
-                  className="group relative flex items-center gap-2 px-4 py-2 text-xs uppercase tracking-wider font-bold
-                           border border-[var(--accent)] text-[var(--accent)]
-                           hover:bg-[var(--accent)] hover:text-black
-                           transition-all duration-300
-                           shadow-[0_0_10px_rgba(0,255,255,0.2)] hover:shadow-[0_0_20px_rgba(0,255,255,0.6)]
-                           overflow-hidden"
-                >
-                  <span className="relative z-10">Manage DB</span>
-                  <div className="absolute inset-0 bg-[var(--accent)] transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-300"></div>
-                </Link>
+            <Link 
+              to="/admin" 
+              className="group relative flex items-center gap-2 px-4 py-2 text-xs uppercase tracking-wider font-bold
+                       border border-[var(--accent)] text-[var(--accent)]
+                       hover:bg-[var(--accent)] hover:text-black
+                       transition-all duration-300
+                       shadow-[0_0_10px_rgba(0,255,255,0.2)] hover:shadow-[0_0_20px_rgba(0,255,255,0.6)]
+                       overflow-hidden"
+            >
+              <span className="relative z-10">Manage DB</span>
+              <div className="absolute inset-0 bg-[var(--accent)] transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-300"></div>
+            </Link>
 
-                <button
-                  onClick={() => {
-                    logout();
-                    navigate('/');
-                  }}
-                  className="group relative flex items-center gap-2 px-4 py-2 text-xs uppercase tracking-wider font-bold
-                           border border-red-500 text-red-500
-                           hover:bg-red-500 hover:text-white
-                           transition-all duration-300
-                           shadow-[0_0_10px_rgba(239,68,68,0.2)] hover:shadow-[0_0_20px_rgba(239,68,68,0.6)]
-                           overflow-hidden"
-                >
-                  <LogOut size={14} className="relative z-10" />
-                  <span className="relative z-10">Exit</span>
-                  <div className="absolute inset-0 bg-red-500 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-300"></div>
-                </button>
-              </>
-            )}
+            <button
+              onClick={() => {
+                logout();
+                navigate('/');
+              }}
+              className="group relative flex items-center gap-2 px-4 py-2 text-xs uppercase tracking-wider font-bold
+                       border border-red-500 text-red-500
+                       hover:bg-red-500 hover:text-white
+                       transition-all duration-300
+                       shadow-[0_0_10px_rgba(239,68,68,0.2)] hover:shadow-[0_0_20px_rgba(239,68,68,0.6)]
+                       overflow-hidden"
+            >
+              <LogOut size={14} className="relative z-10" />
+              <span className="relative z-10">Exit</span>
+              <div className="absolute inset-0 bg-red-500 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-300"></div>
+            </button>
 
-            {/* Back to Player Button */}
             <Link 
               to="/" 
               className="group flex items-center gap-2 px-4 py-2 text-xs uppercase tracking-wider font-bold
@@ -345,10 +409,82 @@ export function Upload() {
           </div>
         </div>
 
-        {/* Decorative bottom border */}
         <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[var(--accent)] to-transparent opacity-30"></div>
       </div>
 
+      {/* ── Quick Import Panel ─────────────────────────────────────────────── */}
+      <div className="border border-[var(--text-secondary)] bg-black/40 backdrop-blur-sm p-6 space-y-4">
+        <div className="flex items-center gap-2 mb-1">
+          <Link2 size={16} className="text-[var(--accent)]" />
+          <span className="text-xs uppercase tracking-widest text-[var(--text-secondary)]">
+            Quick Import — Spotify / SoundCloud
+          </span>
+        </div>
+
+        <p className="text-[10px] text-[var(--text-secondary)] leading-relaxed">
+          Qo'shiq havolasini kiriting → nom, artist va muqova avtomatik to'ldiriladi. So'ng faqat audio faylni yuklang.
+        </p>
+
+        <div className="flex gap-3">
+          <div className="relative flex-1">
+            <input
+              type="url"
+              value={importUrl}
+              onChange={e => { setImportUrl(e.target.value); setImportError(null); }}
+              onKeyDown={e => e.key === 'Enter' && handleImport()}
+              placeholder="https://open.spotify.com/track/... yoki https://soundcloud.com/..."
+              className="w-full bg-black/50 border border-[var(--text-secondary)] p-3 pr-8 focus:outline-none focus:border-[var(--accent)] focus:shadow-[0_0_10px_var(--accent)] transition-all text-sm placeholder:text-[var(--text-secondary)]/40"
+            />
+            {importUrl && (
+              <button
+                type="button"
+                onClick={() => { setImportUrl(""); setImportError(null); }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={handleImport}
+            disabled={importing || !importUrl.trim()}
+            className="px-5 py-3 text-xs uppercase tracking-widest font-bold border transition-all duration-300
+                       border-[var(--accent)] text-[var(--accent)]
+                       hover:bg-[var(--accent)] hover:text-black
+                       disabled:opacity-40 disabled:cursor-not-allowed
+                       shadow-[0_0_8px_rgba(0,255,255,0.1)] hover:shadow-[0_0_15px_rgba(0,255,255,0.4)]
+                       flex items-center gap-2 whitespace-nowrap"
+          >
+            {importing ? (
+              <><Loader2 size={14} className="animate-spin" /> Importing...</>
+            ) : (
+              <><Sparkles size={14} /> Import</>
+            )}
+          </button>
+        </div>
+
+        {importError && (
+          <div className="flex items-center gap-2 text-red-400 text-xs border border-red-500/30 bg-red-900/10 px-3 py-2">
+            <AlertCircle size={14} />
+            <span>{importError}</span>
+          </div>
+        )}
+
+        {/* Platform hints */}
+        <div className="flex gap-4 text-[9px] text-[var(--text-secondary)]/50 uppercase tracking-widest">
+          <span className="flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block"></span>
+            Spotify
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-orange-500 inline-block"></span>
+            SoundCloud
+          </span>
+        </div>
+      </div>
+
+      {/* ── Upload Form ─────────────────────────────────────────────────────── */}
       <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-8 bg-black/40 p-8 border border-[var(--text-secondary)] shadow-[0_0_30px_rgba(0,255,255,0.05)] backdrop-blur-sm">
         
         {/* Left Column: Text Inputs */}
@@ -377,7 +513,6 @@ export function Upload() {
 
           <div className="space-y-2">
             <label className="block text-sm text-[var(--text-secondary)] uppercase tracking-widest">Category</label>
-            {/* Custom dropdown to match Player styling */}
             <div className="relative" ref={catRef}>
               <button
                 type="button"
@@ -451,7 +586,7 @@ export function Upload() {
           <div className="pt-4">
              {status && (
               <div className={`p-4 border flex items-center gap-3 ${status.type === 'success' ? 'border-green-500 text-green-400 bg-green-900/20' : 'border-red-500 text-red-400 bg-red-900/20'}`}>
-                {status.message.includes("AI") ? <Sparkles className="animate-pulse text-[var(--accent)]" /> : (status.type === 'success' ? <CheckCircle /> : <AlertCircle />)}
+                {status.message.includes("AI") || status.message.includes("import") ? <Sparkles className="animate-pulse text-[var(--accent)]" /> : (status.type === 'success' ? <CheckCircle /> : <AlertCircle />)}
                 {status.message}
               </div>
             )}
@@ -493,8 +628,13 @@ export function Upload() {
 
           {/* Cover Upload */}
           <div className="relative group">
-            <label className="block text-sm text-[var(--text-secondary)] uppercase tracking-widest mb-2">Cover Art</label>
-            <div className={`relative h-64 border-2 border-dashed border-[var(--text-secondary)] flex flex-col items-center justify-center cursor-pointer transition-colors group-hover:border-[var(--accent)] overflow-hidden ${coverFile ? 'border-solid' : ''}`}>
+            <label className="block text-sm text-[var(--text-secondary)] uppercase tracking-widest mb-2">
+              Cover Art
+              {previewUrl && !coverFile && (
+                <span className="ml-2 text-[var(--accent)] normal-case text-[9px]">(import'dan olindi — qo'lda almashtirish mumkin)</span>
+              )}
+            </label>
+            <div className={`relative h-64 border-2 border-dashed border-[var(--text-secondary)] flex flex-col items-center justify-center cursor-pointer transition-colors group-hover:border-[var(--accent)] overflow-hidden ${coverFile || previewUrl ? 'border-solid' : ''}`}>
                <input 
                 type="file" 
                 accept="image/*" 

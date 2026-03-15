@@ -1,56 +1,50 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import { supabase } from '../lib/supabase';
+import type { Session } from '@supabase/supabase-js';
 
 interface AuthContextType {
   isAuthenticated: boolean;
-  login: (password: string) => { success: boolean; message: string };
-  logout: () => void;
+  isLoading: boolean;
+  login: (email: string, password: string) => Promise<{ success: boolean; message: string }>;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD;
-const AUTH_KEY = 'music_admin_auth';
-
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [session, setSession] = useState<Session | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Check localStorage and sessionStorage on mount
   useEffect(() => {
-    const stored = localStorage.getItem(AUTH_KEY);
-    const sessionStore = sessionStorage.getItem(AUTH_KEY);
-    if (stored === 'true' && sessionStore === 'true') {
-      setIsAuthenticated(true);
-    } else {
-      // If session is wiped but local remains (or vice versa), fail auth
-      setIsAuthenticated(false);
-      localStorage.removeItem(AUTH_KEY);
-      sessionStorage.removeItem(AUTH_KEY);
-    }
+    // Get initial session on mount
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setIsLoading(false);
+    });
+
+    // Listen for auth state changes (login, logout, token refresh)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      setIsLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  const login = (password: string) => {
-    if (!ADMIN_PASSWORD) {
-        console.error("ADMIN_PASSWORD is not set in environment.");
-        return { success: false, message: "System Error: VITE_ADMIN_PASSWORD is not configured in .env" };
+  const login = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      return { success: false, message: error.message };
     }
-    
-    if (password === ADMIN_PASSWORD) {
-      setIsAuthenticated(true);
-      localStorage.setItem(AUTH_KEY, 'true');
-      sessionStorage.setItem(AUTH_KEY, 'true');
-      return { success: true, message: "Access Granted" };
-    }
-    return { success: false, message: "Access Denied: Invalid Credentials" };
+    return { success: true, message: 'Access Granted' };
   };
 
-  const logout = () => {
-    setIsAuthenticated(false);
-    localStorage.removeItem(AUTH_KEY);
-    sessionStorage.removeItem(AUTH_KEY);
+  const logout = async () => {
+    await supabase.auth.signOut();
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated: !!session, isLoading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
