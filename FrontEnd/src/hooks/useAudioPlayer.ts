@@ -15,6 +15,7 @@ export function useAudioPlayer(songs: { url: string, id?: number }[]) {
   const [shuffle, setShuffle] = useState(false);
   const [repeat, setRepeat] = useState<RepeatMode>("off");
   const [audioError, setAudioError] = useState<string | null>(null);
+  const [sleepTimer, setSleepTimer] = useState<number | null>(null);
 
   const { autoplay } = useSettings();
 
@@ -175,6 +176,29 @@ export function useAudioPlayer(songs: { url: string, id?: number }[]) {
     }
   }, [volume]);
 
+  // 6. Sleep Timer countdown
+  useEffect(() => {
+    if (sleepTimer === null) return;
+    
+    if (sleepTimer <= 0) {
+      pause();
+      setSleepTimer(null);
+      return;
+    }
+
+    const timer = setInterval(() => {
+      setSleepTimer(prev => {
+        if (prev === null || prev <= 1) {
+          pause();
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 60000); // Decrement every minute
+
+    return () => clearInterval(timer);
+  }, [sleepTimer]);
+
   // Public Methods
   const play = async () => {
     if (audioContextRef.current?.state === 'suspended') {
@@ -226,6 +250,8 @@ export function useAudioPlayer(songs: { url: string, id?: number }[]) {
     seek, toggleShuffle: () => setShuffle(!shuffle),
     toggleRepeat: () => setRepeat(r => r === "off" ? "all" : r === "all" ? "one" : "off"),
     selectSong: (i: number) => { setIndex(i); setPlaying(true); setAudioError(null); },
+    setSleepTimer,
+    sleepTimer,
     analyser: analyserRef.current
   };
 }

@@ -2,9 +2,9 @@ import type { Song } from "../types/Song";
 import SEO from "./SEO";
 
 import { useSettings } from "../contexts/SettingsContext";
-import { Heart, Mic2, X, Upload, Search, Plus, Loader2, Check, Send, AlertTriangle, ListMusic, ChevronDown, Share2 } from "lucide-react";
+import { Heart, Mic2, X, Upload, Search, Plus, Loader2, Check, Send, AlertTriangle, ListMusic, ChevronDown, Share2, Moon, Clock } from "lucide-react";
 import { Link } from "react-router-dom";
-import { searchSongs, getTrendingSongs } from "../services/musicApi";
+import { searchSongs, getTrendingSongs, incrementPlayCount } from "../services/musicApi";
 
 import { useAudioPlayer } from "../hooks/useAudioPlayer";
 import { Playlist } from "./Playlist";
@@ -13,6 +13,7 @@ import { ProgressBar } from "./ProgressBar";
 import { PlaybackControls } from "./PlaybackControls";
 import { VolumeControl } from "./VolumeControl";
 import { Visualizer, FadeVisualizer, useBeatScale, AmbientBackground, ConcentricWavesVisualizer } from "./Visualizer";
+import { LyricsView } from "./LyricsView";
 import { formatTime } from "../utils/formatTime";
 import { useState, useEffect, useRef } from "react";
 import { useDebounce } from "../hooks/useDebounce";
@@ -43,7 +44,8 @@ export function Player({ songs, loading, error, player, onOpenSettings, onAddToP
 
   const [isConfigMenuOpen, setIsConfigMenuOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("All");
-  const [showLyrics, setShowLyrics] = useState(false);
+  const [isKaraokeOpen, setIsKaraokeOpen] = useState(false);
+  const [isSleepTimerMenuOpen, setIsSleepTimerMenuOpen] = useState(false);
   // Likes stored in localStorage — instant, no network, no auth needed
   const [likedIds, setLikedIds] = useState<Set<number>>(() => {
     try {
@@ -53,6 +55,8 @@ export function Player({ songs, loading, error, player, onOpenSettings, onAddToP
   });
   const [showVolumeHUD, setShowVolumeHUD] = useState(false);
   const volumeTimerRef = useRef<any>(null);
+  const current: Song = songs[player.index];
+
   // Trending songs from full DB
   const [trendingSongs, setTrendingSongs] = useState<Song[]>([]);
 
@@ -60,10 +64,15 @@ export function Player({ songs, loading, error, player, onOpenSettings, onAddToP
     getTrendingSongs(10).then(setTrendingSongs).catch(console.error);
   }, []);
 
+  // Increment play count when song starts playing
+  useEffect(() => {
+    if (player.playing && current) {
+      incrementPlayCount(current.id).catch(console.error);
+    }
+  }, [player.playing, current?.id]);
+
   // Mobile Drawer State
   const [isMobilePlaylistOpen, setIsMobilePlaylistOpen] = useState(false);
-
-  const current: Song = songs[player.index];
 
   // Swipe Gestures State
   const [touchStart, setTouchStart] = useState<number | null>(null);
@@ -132,7 +141,7 @@ export function Player({ songs, loading, error, player, onOpenSettings, onAddToP
   const [lastSearchQuery, setLastSearchQuery] = useState<string>("");
 
   // Lock body scroll when modals are open
-  useScrollLock(isSearchOpen || showLyrics || isConfigMenuOpen || isMobilePlaylistOpen);
+  useScrollLock(isSearchOpen || isKaraokeOpen || isConfigMenuOpen || isMobilePlaylistOpen);
 
   // Load last search from localStorage on mount
   useEffect(() => {
@@ -228,14 +237,14 @@ export function Player({ songs, loading, error, player, onOpenSettings, onAddToP
           break;
         case 'Escape':
           if (isSearchOpen) setIsSearchOpen(false);
-          if (showLyrics) setShowLyrics(false);
+          if (isKaraokeOpen) setIsKaraokeOpen(false);
           break;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [player, isSearchOpen, showLyrics]);
+  }, [player, isSearchOpen, isKaraokeOpen]);
 
 
 
@@ -507,7 +516,7 @@ export function Player({ songs, loading, error, player, onOpenSettings, onAddToP
                 </div>
             </div>
         )}
-        <div className="relative w-full flex flex-col md:flex-row overflow-hidden min-h-[500px] md:min-h-[560px] lg:min-h-[600px] border border-[var(--text-secondary)] bg-[var(--bg-main)] shadow-[0_0_40px_rgba(0,255,255,0.1)] text-base md:text-lg">
+        <div className="relative w-full flex flex-col md:flex-row overflow-hidden min-h-[500px] md:h-[600px] lg:h-[650px] border border-[var(--text-secondary)] bg-[var(--bg-main)] shadow-[0_0_40px_rgba(0,255,255,0.1)] text-base md:text-lg">
           {/* Decorative Corners */}
           <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-[var(--accent)] z-20"></div>
           <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-[var(--accent)] z-20"></div>
@@ -543,6 +552,43 @@ export function Player({ songs, loading, error, player, onOpenSettings, onAddToP
 
             {/* Controls */}
             <div className="flex items-center gap-2">
+                {/* Sleep Timer */}
+                <div className="relative">
+                  <button 
+                    onClick={() => { playClick(); setIsSleepTimerMenuOpen(!isSleepTimerMenuOpen); }}
+                    onMouseEnter={playHover}
+                    className={`text-[var(--text-secondary)] hover:text-[var(--accent)] font-mono text-[9px] tracking-widest border ${player.sleepTimer ? 'border-[var(--accent)] text-[var(--accent)] shadow-[0_0_10px_rgba(0,255,255,0.2)]' : 'border-[var(--text-secondary)]/30'} px-3 py-1 transition-all bg-black/50 uppercase flex items-center gap-2 group`}
+                    title="Sleep Timer"
+                  >
+                    <Moon size={10} fill={player.sleepTimer ? "currentColor" : "none"} />
+                    <span className="mx-1">{player.sleepTimer ? `${player.sleepTimer}M` : 'Sleep'}</span>
+                  </button>
+                  
+                  {isSleepTimerMenuOpen && (
+                    <div className="absolute top-full mt-1 right-0 w-36 bg-black/95 backdrop-blur-xl border border-[var(--accent)]/30 z-50 shadow-2xl animate-in fade-in zoom-in duration-200">
+                      <div className="px-3 py-1.5 border-b border-white/5 text-[7px] font-mono text-[var(--accent)] uppercase tracking-[0.2em] opacity-60">Set Timer</div>
+                      {[15, 30, 45, 60].map(mins => (
+                        <button
+                          key={mins}
+                          onClick={() => { playClick(); player.setSleepTimer(mins); setIsSleepTimerMenuOpen(false); }}
+                          className="w-full text-left px-3 py-2 text-[9px] font-mono uppercase tracking-wider hover:bg-[var(--accent)]/10 text-[var(--text-secondary)] hover:text-white transition-colors flex justify-between items-center"
+                        >
+                          <span>{mins} Minutes</span>
+                          {player.sleepTimer === mins && <div className="w-1 h-1 bg-[var(--accent)] rounded-full animate-pulse shadow-[0_0_5px_var(--accent)]" />}
+                        </button>
+                      ))}
+                      {player.sleepTimer && (
+                        <button
+                          onClick={() => { playClick(); player.setSleepTimer(null); setIsSleepTimerMenuOpen(false); }}
+                          className="w-full text-left px-3 py-2 text-[9px] font-mono uppercase tracking-wider bg-red-500/5 hover:bg-red-500/20 text-red-500/70 hover:text-red-400 border-t border-white/5 transition-colors"
+                        >
+                          Cancel Timer
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 <button 
                   onClick={() => { playClick(); onOpenSettings(); }}
                   onMouseEnter={playHover}
@@ -655,9 +701,9 @@ export function Player({ songs, loading, error, player, onOpenSettings, onAddToP
                       {/* Lyrics Button - Visible only if lyrics exist */}
                       {current.lyrics && (
                         <button
-                          onClick={() => setShowLyrics(true)}
+                          onClick={() => setIsKaraokeOpen(true)}
                           className="p-3 md:p-4 rounded-full text-[var(--text-secondary)] hover:text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-all duration-300 transform hover:scale-110 active:scale-95 shrink-0 mt-1"
-                          title="Show Lyrics"
+                          title="Karaoke Mode"
                         >
                           <Mic2 size={20} strokeWidth={1.5} />
                         </button>
@@ -741,7 +787,7 @@ export function Player({ songs, loading, error, player, onOpenSettings, onAddToP
               backdrop-blur-xl md:backdrop-blur-sm 
               transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]
               ${isMobilePlaylistOpen ? 'translate-y-0' : 'translate-y-full md:translate-y-0'}
-              h-[80vh] md:h-auto min-h-0 md:min-h-0 overflow-hidden
+              h-[80vh] md:h-full min-h-0 overflow-hidden
               shadow-[0_-10px_40px_rgba(0,0,0,0.8)] md:shadow-none
             `}>
               
@@ -980,24 +1026,25 @@ export function Player({ songs, loading, error, player, onOpenSettings, onAddToP
       </div>
     )}
 
-    {/* Lyrics Overlay */}
-    {showLyrics && (
-      <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-8 animate-in fade-in duration-300">
-        <button 
-          onClick={() => setShowLyrics(false)}
-          className="absolute top-6 right-6 text-[var(--text-secondary)] hover:text-[var(--accent)] transition-colors p-2"
-        >
-          <X size={32} />
-        </button>
-        
-        <div className="text-center max-w-2xl w-full max-h-full overflow-y-auto custom-scrollbar">
-          <h3 className="text-[var(--accent)] text-xl font-bold tracking-widest mb-6 sticky top-0 bg-black/0 backdrop-blur-sm py-2">
-            LYRICS // {current.title}
-          </h3>
-          <p className="text-[var(--text-primary)] font-mono whitespace-pre-line leading-loose text-lg md:text-xl">
-            {current.lyrics}
-          </p>
-        </div>
+    {/* Karaoke Mode Layer */}
+    {isKaraokeOpen && current && (
+      <LyricsView 
+        song={current} 
+        currentTime={player.currentTime}
+        onClose={() => setIsKaraokeOpen(false)} 
+      />
+    )}
+
+    {/* Sleep Timer countdown HUD */}
+    {player.sleepTimer !== null && (
+      <div className="fixed bottom-12 md:bottom-24 right-4 md:right-8 z-[100] animate-in slide-in-from-right-10 duration-500">
+         <div className="bg-black/80 backdrop-blur-xl border border-[var(--accent)]/30 px-4 py-2 flex items-center gap-3 shadow-[0_0_20px_rgba(0,255,255,0.1)]">
+            <Clock size={16} className="text-[var(--accent)] animate-pulse" />
+            <div className="flex flex-col">
+              <span className="text-[8px] font-mono text-[var(--accent)] uppercase tracking-widest leading-none mb-1">Deep Sleep Mode</span>
+              <span className="text-xs font-mono text-white leading-none">{player.sleepTimer}M Remaining</span>
+            </div>
+         </div>
       </div>
     )}
     </div>
