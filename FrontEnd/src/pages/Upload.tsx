@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, type ChangeEvent, type FormEvent } from "react";
+import { useState, useEffect, useRef, type ChangeEvent, type FormEvent, type ClipboardEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useFetchSongs } from "../hooks/useFetchSongs";
 import { ArrowLeft, Music, Image as ImageIcon, AlertCircle, LogOut, Sparkles, Link2, Loader2, X } from "lucide-react";
@@ -362,6 +362,32 @@ export function Upload() {
     }
   };
 
+  // ── Paste handler ───────────────────────────────────────────────────────────
+  const handlePaste = (e: ClipboardEvent<HTMLDivElement>) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf("image") !== -1) {
+        const file = items[i].getAsFile();
+        if (file) {
+          const fileSizeMB = file.size / (1024 * 1024);
+          if (fileSizeMB > 5) {
+            toast.error(`Pasted image is too big! (${fileSizeMB.toFixed(2)} MB). Max limit is 5MB.`);
+            return;
+          }
+          setCoverTab("file");
+          setCoverFile(file);
+          setCoverUrl("");
+          setPreviewUrl(URL.createObjectURL(file));
+          toast.success("Image pasted successfully!");
+          e.preventDefault();
+          break;
+        }
+      }
+    }
+  };
+
   // ── Submit ──────────────────────────────────────────────────────────────────
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -428,7 +454,7 @@ export function Upload() {
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto p-6 md:p-12 relative z-10 flex flex-col gap-8 text-[var(--text-primary)] font-mono">
+    <div className="w-full max-w-4xl mx-auto p-6 md:p-12 relative z-10 flex flex-col gap-8 text-[var(--text-primary)] font-mono" onPaste={handlePaste}>
       {/* Header */}
       <div className="relative border border-[var(--text-secondary)] bg-black/60 backdrop-blur-sm">
         <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[var(--accent)] to-transparent opacity-50"></div>
